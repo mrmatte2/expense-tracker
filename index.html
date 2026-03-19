@@ -648,28 +648,25 @@
   }
 
   function parseMonth(val) {
-    console.log('parseMonth input:', val, typeof val);
     if (!val) return '—';
     const s = String(val).trim();
-    // YYYY-MM-DD string — parse parts directly to avoid timezone shift
-    const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    // Google Sheets sends last day of month as ISO timestamp in UTC
+    // e.g. 2026-03-01 Stockholm -> 2026-02-28T13:00:00.000Z
+    // So we parse the UTC date and add 1 day to get the correct month
+    const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
     if (isoMatch) {
-      const year = parseInt(isoMatch[1]);
-      const month = parseInt(isoMatch[2]) - 1;
-      const day = parseInt(isoMatch[3]);
-      const d = new Date(year, month, day);
-      return d.toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
-    }
-    // Google Sheets serial number — use UTC noon to avoid any timezone shift
-    if (typeof val === 'number') {
-      // Serial 1 = Jan 1 1900, but Sheets has a leap year bug so offset is 25567 not 25569
-      const ms = (val - 25567) * 86400 * 1000;
-      const d = new Date(ms);
-      // Use UTC month/year to avoid local timezone shifting the date
+      const d = new Date(s);
+      // Add 1 day to compensate for the end-of-month UTC shift
+      d.setUTCDate(d.getUTCDate() + 1);
       const year = d.getUTCFullYear();
       const month = d.getUTCMonth();
-      const utcDate = new Date(year, month, 1);
-      return utcDate.toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
+      return new Date(year, month, 1).toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
+    }
+    // Plain YYYY-MM-DD string
+    const plainMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (plainMatch) {
+      const d = new Date(parseInt(plainMatch[1]), parseInt(plainMatch[2]) - 1, 1);
+      return d.toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
     }
     return s;
   }
@@ -745,8 +742,8 @@
             </div>
           </div>
           <div class="month-footer">
-            <span class="owed-text">${who || 'Even'}</span>
-            <span class="owed-amount">${fmt(amount)}</span>
+            <span class="owed-text">${isSettled ? 'Settled' : (who || 'Even')}</span>
+            <span class="owed-amount">${isSettled ? '0 kr' : fmt(amount)}</span>
           </div>
           ${!isSettled ? `<button class="settle-btn" onclick="markAsPaid(${rowIndex + 2}, this)">✓ Mark as paid</button>` : ''}
         </div>
