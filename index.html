@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Expense Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F5F0E8;
+    --surface: #FDFAF4;
+    --ink: #1A1714;
+    --ink-muted: #7A7068;
+    --accent: #C84B2F;
+    --accent-light: #F2E8E4;
+    --success: #2D6A4F;
+    --success-light: #D8F0E6;
+    --border: #DDD8CE;
+    --shadow: 0 2px 12px rgba(26,23,20,0.08);
+  }
+
+  body {
+    font-family: 'DM Mono', monospace;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 24px 16px 48px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  header h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 2rem;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+  }
+
+  header h1 span {
+    color: var(--accent);
+    font-style: italic;
+  }
+
+  header p {
+    font-size: 0.72rem;
+    color: var(--ink-muted);
+    margin-top: 6px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 480px;
+    margin: 0 auto;
+    box-shadow: var(--shadow);
+  }
+
+  /* Setup section */
+  .setup-section {
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px dashed var(--border);
+  }
+
+  .setup-section h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-muted);
+    margin-bottom: 12px;
+  }
+
+  .setup-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .setup-row .field { flex: 1; }
+
+  .collapse-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--ink-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    height: 40px;
+    transition: all 0.15s;
+  }
+  .collapse-btn:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+
+  /* Fields */
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 14px;
+  }
+
+  label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-muted);
+    font-weight: 500;
+  }
+
+  input, select {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.88rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--ink);
+    width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+  }
+
+  /* Who paid toggle */
+  .toggle-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .toggle-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    text-align: center;
+    background: var(--bg);
+    color: var(--ink-muted);
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+
+  .toggle-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  /* Betalad toggle */
+  .betalad-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .betalad-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    cursor: pointer;
+    text-align: center;
+    background: var(--bg);
+    color: var(--ink-muted);
+    transition: all 0.15s;
+  }
+
+  .betalad-btn.active-ja {
+    background: var(--success);
+    border-color: var(--success);
+    color: white;
+  }
+
+  .betalad-btn.active-nej {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: white;
+  }
+
+  /* Submit */
+  .submit-btn {
+    width: 100%;
+    font-family: 'Fraunces', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 15px;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.15s;
+    letter-spacing: -0.2px;
+  }
+
+  .submit-btn:hover { background: #A83A20; transform: translateY(-1px); }
+  .submit-btn:active { transform: translateY(0); }
+  .submit-btn:disabled { background: var(--border); color: var(--ink-muted); transform: none; cursor: not-allowed; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--ink);
+    color: white;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    padding: 12px 20px;
+    border-radius: 999px;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    white-space: nowrap;
+    z-index: 100;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .toast.success { background: var(--success); }
+  .toast.error { background: var(--accent); }
+
+  /* Recent entries */
+  .recent {
+    max-width: 480px;
+    margin: 24px auto 0;
+  }
+
+  .recent h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-muted);
+    margin-bottom: 10px;
+    padding: 0 4px;
+  }
+
+  .entry {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+  }
+
+  .entry-left { display: flex; flex-direction: column; gap: 2px; }
+  .entry-item { font-weight: 500; color: var(--ink); }
+  .entry-meta { color: var(--ink-muted); font-size: 0.7rem; }
+  .entry-amount { font-weight: 500; color: var(--accent); font-size: 0.9rem; }
+
+  .hidden { display: none; }
+
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237A7068' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Utgifter <span>&</span> Räkningar</h1>
+  <p>Mattias & Melissa</p>
+</header>
+
+<div class="card">
+  <!-- Setup -->
+  <div class="setup-section" id="setupSection">
+    <h2>⚙ Google Sheets Setup</h2>
+    <div class="field">
+      <label>Sheet / Tab name</label>
+      <input type="text" id="sheetName" placeholder="e.g. Expenses" />
+    </div>
+    <div class="setup-row">
+      <div class="field">
+        <label>Web App URL</label>
+        <input type="text" id="webAppUrl" placeholder="https://script.google.com/macros/s/..." value="https://script.google.com/macros/s/AKfycbyDV1_2_bWr4GKuhrbiCn0WV6sZsf0z6chMxno55AYZKbh5hr5bPshflDkzg-Ey44_o/exec" />
+      </div>
+      <button class="collapse-btn" onclick="saveSetup()">Save & Hide</button>
+    </div>
+    <p style="font-size:0.65rem; color:var(--ink-muted); margin-top:4px;">Your settings are saved locally in your browser.</p>
+  </div>
+
+  <div id="setupCollapsed" class="hidden" style="margin-bottom:20px; padding-bottom:20px; border-bottom: 1px dashed var(--border); display:flex; justify-content:space-between; align-items:center;">
+    <span style="font-size:0.72rem; color:var(--ink-muted); text-transform:uppercase; letter-spacing:0.08em;">✓ Sheet configured</span>
+    <button class="collapse-btn" onclick="showSetup()">Edit</button>
+  </div>
+
+  <!-- Form -->
+  <div class="field">
+    <label>Purchase Date</label>
+    <input type="date" id="purchaseDate" />
+  </div>
+
+  <div class="field">
+    <label>Item</label>
+    <input type="text" id="item" placeholder="e.g. ICA Maxi groceries" />
+  </div>
+
+  <div class="field">
+    <label>Amount (kr)</label>
+    <input type="number" id="amount" placeholder="0" inputmode="decimal" />
+  </div>
+
+  <div class="field">
+    <label>Category</label>
+    <select id="category">
+      <option value="">Select category…</option>
+      <option value="Bills">Bills</option>
+      <option value="Groceries">Groceries</option>
+      <option value="Food & Drink">Food & Drink</option>
+      <option value="Other">Other</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Betalad</label>
+    <div class="betalad-group">
+      <button class="betalad-btn active-ja" id="btn-ja" onclick="setBetalad('Ja')">Ja</button>
+      <button class="betalad-btn" id="btn-nej" onclick="setBetalad('Nej')">Nej</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Vem betalade</label>
+    <div class="toggle-group">
+      <button class="toggle-btn" id="btn-mattias" onclick="setPayer('Mattias')">Mattias</button>
+      <button class="toggle-btn" id="btn-melissa" onclick="setPayer('Melissa')">Melissa</button>
+    </div>
+  </div>
+
+  <button class="submit-btn" id="submitBtn" onclick="submitEntry()">Add Expense</button>
+</div>
+
+<!-- Recent entries -->
+<div class="recent">
+  <h2>Recent entries</h2>
+  <div id="recentList"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let selectedPayer = '';
+  let selectedBetalad = 'Ja';
+  let recentEntries = [];
+
+  // Set today's date
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('purchaseDate').value = today;
+
+  // Load saved settings
+  window.onload = () => {
+    const saved = JSON.parse(localStorage.getItem('expenseSettings') || '{}');
+    if (saved.sheetName) document.getElementById('sheetName').value = saved.sheetName;
+    if (saved.webAppUrl) document.getElementById('webAppUrl').value = saved.webAppUrl;
+    if (saved.configured) {
+      document.getElementById('setupSection').classList.add('hidden');
+      document.getElementById('setupCollapsed').style.display = 'flex';
+    }
+    recentEntries = JSON.parse(localStorage.getItem('recentEntries') || '[]');
+    renderRecent();
+  };
+
+  function saveSetup() {
+    const sheetName = document.getElementById('sheetName').value.trim();
+    const webAppUrl = document.getElementById('webAppUrl').value.trim();
+    if (!sheetName || !webAppUrl) { showToast('Fill in all setup fields', 'error'); return; }
+    localStorage.setItem('expenseSettings', JSON.stringify({ sheetName, webAppUrl, configured: true }));
+    document.getElementById('setupSection').classList.add('hidden');
+    document.getElementById('setupCollapsed').style.display = 'flex';
+    showToast('Settings saved ✓', 'success');
+  }
+
+  function showSetup() {
+    document.getElementById('setupSection').classList.remove('hidden');
+    document.getElementById('setupCollapsed').style.display = 'none';
+  }
+
+  function setPayer(name) {
+    selectedPayer = name;
+    document.getElementById('btn-mattias').classList.toggle('active', name === 'Mattias');
+    document.getElementById('btn-melissa').classList.toggle('active', name === 'Melissa');
+  }
+
+  function setBetalad(val) {
+    selectedBetalad = val;
+    document.getElementById('btn-ja').className = 'betalad-btn' + (val === 'Ja' ? ' active-ja' : '');
+    document.getElementById('btn-nej').className = 'betalad-btn' + (val === 'Nej' ? ' active-nej' : '');
+  }
+
+  async function submitEntry() {
+    const settings = JSON.parse(localStorage.getItem('expenseSettings') || '{}');
+    if (!settings.webAppUrl) { showToast('Configure your sheet first', 'error'); showSetup(); return; }
+
+    const purchaseDate = document.getElementById('purchaseDate').value;
+    const item = document.getElementById('item').value.trim();
+    const amount = document.getElementById('amount').value;
+    const category = document.getElementById('category').value;
+
+    if (!purchaseDate || !item || !amount || !category || !selectedPayer) {
+      showToast('Please fill in all fields', 'error'); return;
+    }
+
+    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const row = [timestamp, purchaseDate, item, parseFloat(amount), category, selectedBetalad, selectedPayer];
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    try {
+      const url = `${settings.webAppUrl}?sheet=${encodeURIComponent(settings.sheetName)}`;
+      await fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row })
+      });
+
+      // Save to recent
+      recentEntries.unshift({ item, amount: parseFloat(amount), payer: selectedPayer, date: purchaseDate, category });
+      if (recentEntries.length > 5) recentEntries.pop();
+      localStorage.setItem('recentEntries', JSON.stringify(recentEntries));
+      renderRecent();
+
+      showToast('Expense added ✓', 'success');
+      document.getElementById('item').value = '';
+      document.getElementById('amount').value = '';
+      document.getElementById('category').value = '';
+      document.getElementById('purchaseDate').value = today;
+      selectedPayer = '';
+      document.getElementById('btn-mattias').classList.remove('active');
+      document.getElementById('btn-melissa').classList.remove('active');
+
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Add Expense';
+    }
+  }
+
+  function renderRecent() {
+    const list = document.getElementById('recentList');
+    if (recentEntries.length === 0) {
+      list.innerHTML = '<p style="font-size:0.75rem;color:var(--ink-muted);padding:0 4px;">No entries yet.</p>';
+      return;
+    }
+    list.innerHTML = recentEntries.map(e => `
+      <div class="entry">
+        <div class="entry-left">
+          <span class="entry-item">${e.item}</span>
+          <span class="entry-meta">${e.date} · ${e.category} · ${e.payer}</span>
+        </div>
+        <span class="entry-amount">${e.amount.toLocaleString('sv-SE')} kr</span>
+      </div>
+    `).join('');
+  }
+
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast ' + type + ' show';
+    setTimeout(() => t.className = 'toast ' + type, 2500);
+  }
+</script>
+</body>
+</html>
