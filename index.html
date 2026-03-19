@@ -356,6 +356,22 @@
     font-weight: 500;
   }
 
+  .settle-btn {
+    width: 100%;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    background: none;
+    border: 1px solid var(--success);
+    border-radius: 10px;
+    padding: 10px;
+    color: var(--success);
+    cursor: pointer;
+    margin-top: 12px;
+    transition: all 0.15s;
+  }
+  .settle-btn:hover { background: var(--success-light); }
+  .settle-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
   .loading-msg {
     text-align: center;
     color: var(--ink-muted);
@@ -408,12 +424,12 @@
       <h2>⚙ Google Sheets Setup</h2>
       <div class="field">
         <label>Sheet / Tab name</label>
-        <input type="text" id="sheetName" placeholder="e.g. Expenses" />
+        <input type="text" id="sheetName" placeholder="e.g. Expenses" value="Expenses" />
       </div>
       <div class="setup-row">
         <div class="field">
           <label>Web App URL</label>
-          <input type="text" id="webAppUrl" placeholder="https://script.google.com/macros/s/..." value="https://script.google.com/macros/s/AKfycbxELaSHS5O7UERW4D-YCeO1LNab1oJEZJq9jmxONuik3qUsJDtR9pwQ-YvBNrjA6iNv/exec" />
+          <input type="text" id="webAppUrl" placeholder="https://script.google.com/macros/s/..." value="https://script.google.com/macros/s/AKfycbydG-v9EC2Ej420ZQoFSBk-VkeFRyObKd1bi1mTwBGOem1g9g1oRdCEWPVm_iu7rmOf/exec" />
         </div>
         <button class="collapse-btn" onclick="saveSetup()">Save & Hide</button>
       </div>
@@ -632,16 +648,28 @@
   }
 
   function parseMonth(val) {
+    console.log('parseMonth input:', val, typeof val);
     if (!val) return '—';
-    // Google Sheets serial number
-    if (typeof val === 'number') {
-      const d = new Date(Math.round((val - 25569) * 86400 * 1000));
+    const s = String(val).trim();
+    // YYYY-MM-DD string — parse parts directly to avoid timezone shift
+    const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+      const year = parseInt(isoMatch[1]);
+      const month = parseInt(isoMatch[2]) - 1;
+      const day = parseInt(isoMatch[3]);
+      const d = new Date(year, month, day);
       return d.toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
     }
-    const s = String(val);
-    if (s.match(/^\d{4}-\d{2}/)) {
-      const d = new Date(s);
-      return d.toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
+    // Google Sheets serial number — use UTC noon to avoid any timezone shift
+    if (typeof val === 'number') {
+      // Serial 1 = Jan 1 1900, but Sheets has a leap year bug so offset is 25567 not 25569
+      const ms = (val - 25567) * 86400 * 1000;
+      const d = new Date(ms);
+      // Use UTC month/year to avoid local timezone shifting the date
+      const year = d.getUTCFullYear();
+      const month = d.getUTCMonth();
+      const utcDate = new Date(year, month, 1);
+      return utcDate.toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
     }
     return s;
   }
@@ -658,7 +686,7 @@
     }
 
     const headers = rows[0].map(h => String(h).trim().toLowerCase());
-    const dataRows = rows.slice(1).filter(r => r.some(c => c !== '' && c !== null));
+    const dataRows = rows.slice(1).filter(r => r[0] !== '' && r[0] !== null && r[0] !== undefined);
 
     // Map header names to indices flexibly
     const idx = (names) => {
@@ -678,7 +706,7 @@
     const iAmount   = idx(['amount', 'belopp', 'how much']) !== -1 ? idx(['amount', 'belopp', 'how much']) : 6;
     const iSettled  = idx(['settled', 'reglerad']) !== -1 ? idx(['settled', 'reglerad']) : 7;
 
-    const html = dataRows.map(r => {
+    const html = dataRows.map((r, rowIndex) => {
       const monthLabel = parseMonth(r[iMonth]);
       const melissa  = r[iMelissa];
       const mattias  = r[iMattias];
@@ -720,11 +748,36 @@
             <span class="owed-text">${who || 'Even'}</span>
             <span class="owed-amount">${fmt(amount)}</span>
           </div>
+          ${!isSettled ? `<button class="settle-btn" onclick="markAsPaid(${rowIndex + 2}, this)">✓ Mark as paid</button>` : ''}
         </div>
       `;
     }).join('');
 
     document.getElementById('summaryContent').innerHTML = html || '<div class="loading-msg">No data rows found.</div>';
+  }
+
+  async function markAsPaid(rowNumber, btn) {
+    const settings = JSON.parse(localStorage.getItem('expenseSettings') || '{}');
+    if (!settings.webAppUrl) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      const url = `${settings.webAppUrl}?sheet=${encodeURIComponent('Vem betalade vad')}&action=settle&row=${rowNumber}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.result === 'success') {
+        showToast('Marked as paid ✓', 'success');
+        setTimeout(() => loadSummary(), 800);
+      } else {
+        throw new Error('Unexpected response');
+      }
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error');
+      btn.disabled = false;
+      btn.textContent = '✓ Mark as paid';
+    }
   }
 
   function renderRecent() {
