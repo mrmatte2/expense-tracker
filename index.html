@@ -30,6 +30,105 @@
     padding: 24px 16px calc(var(--nav-h) + 24px);
   }
 
+  /* PIN screen */
+  .pin-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    padding: 32px 24px;
+  }
+
+  .pin-screen h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 1.9rem;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+
+  .pin-screen h1 span { color: var(--accent); font-style: italic; }
+
+  .pin-screen p {
+    font-size: 0.72rem;
+    color: var(--ink-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 40px;
+  }
+
+  .pin-dots {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 32px;
+  }
+
+  .pin-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: transparent;
+    transition: all 0.15s;
+  }
+
+  .pin-dot.filled {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .pin-keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 72px);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .pin-key {
+    font-family: 'Fraunces', serif;
+    font-size: 1.3rem;
+    font-weight: 600;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.1s;
+    box-shadow: var(--shadow);
+  }
+
+  .pin-key:active { transform: scale(0.93); background: var(--accent-light); }
+  .pin-key.empty { border: none; background: transparent; box-shadow: none; cursor: default; }
+  .pin-key.delete { font-size: 1rem; font-family: 'DM Mono', monospace; }
+
+  .pin-error {
+    font-size: 0.72rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    height: 20px;
+    transition: opacity 0.2s;
+  }
+
+  .pin-hint {
+    font-size: 0.68rem;
+    color: var(--ink-muted);
+    margin-top: 16px;
+    text-align: center;
+    letter-spacing: 0.04em;
+  }
+
+  .pin-hint span {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
   header { text-align: center; margin-bottom: 28px; }
 
   header h1 {
@@ -412,6 +511,34 @@
 </head>
 <body>
 
+<!-- PIN Screen -->
+<div class="pin-screen" id="pinScreen">
+  <h1>Utgifter <span>&</span> Räkningar</h1>
+  <p>Mattias & Melissa</p>
+  <div class="pin-dots">
+    <div class="pin-dot" id="dot0"></div>
+    <div class="pin-dot" id="dot1"></div>
+    <div class="pin-dot" id="dot2"></div>
+    <div class="pin-dot" id="dot3"></div>
+  </div>
+  <div class="pin-keypad">
+    <button class="pin-key" onclick="pinPress('1')">1</button>
+    <button class="pin-key" onclick="pinPress('2')">2</button>
+    <button class="pin-key" onclick="pinPress('3')">3</button>
+    <button class="pin-key" onclick="pinPress('4')">4</button>
+    <button class="pin-key" onclick="pinPress('5')">5</button>
+    <button class="pin-key" onclick="pinPress('6')">6</button>
+    <button class="pin-key" onclick="pinPress('7')">7</button>
+    <button class="pin-key" onclick="pinPress('8')">8</button>
+    <button class="pin-key" onclick="pinPress('9')">9</button>
+    <button class="pin-key empty"></button>
+    <button class="pin-key" onclick="pinPress('0')">0</button>
+    <button class="pin-key delete" onclick="pinDelete()">⌫</button>
+  </div>
+  <div class="pin-error" id="pinError"></div>
+  <div class="pin-hint">Hint — Mattias: <span>Kjelle</span> · Melissa: <span>Dryckesföretag Arkiv</span></div>
+</div>
+
 <header>
   <h1>Utgifter <span>&</span> Räkningar</h1>
   <p>Mattias & Melissa</p>
@@ -522,6 +649,51 @@
 <div class="toast" id="toast"></div>
 
 <script>
+  // PIN & SECRET config
+  const PINS = {
+    '1194': { name: 'Mattias', secret: 'mm-expenses-2026' },
+    '2244': { name: 'Melissa', secret: 'mm-expenses-2026' }
+  };
+
+  let SECRET = '';
+  let pinEntry = '';
+
+  function pinPress(digit) {
+    if (pinEntry.length >= 4) return;
+    pinEntry += digit;
+    updateDots();
+    if (pinEntry.length === 4) checkPin();
+  }
+
+  function pinDelete() {
+    pinEntry = pinEntry.slice(0, -1);
+    updateDots();
+    document.getElementById('pinError').textContent = '';
+  }
+
+  function updateDots() {
+    for (let i = 0; i < 4; i++) {
+      document.getElementById('dot' + i).classList.toggle('filled', i < pinEntry.length);
+    }
+  }
+
+  function checkPin() {
+    const match = PINS[pinEntry];
+    if (match) {
+      SECRET = match.secret;
+      document.getElementById('pinScreen').style.display = 'none';
+      // Update stored settings with secret
+      const saved = JSON.parse(localStorage.getItem('expenseSettings') || '{}');
+      saved.secret = SECRET;
+      localStorage.setItem('expenseSettings', JSON.stringify(saved));
+    } else {
+      document.getElementById('pinError').textContent = 'Wrong PIN, try again';
+      pinEntry = '';
+      updateDots();
+      setTimeout(() => document.getElementById('pinError').textContent = '', 2000);
+    }
+  }
+
   let selectedPayer = '';
   let selectedBetalad = 'Ja';
   let recentEntries = [];
@@ -602,7 +774,7 @@
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ row })
+        body: JSON.stringify({ row, token: SECRET })
       });
 
       recentEntries.unshift({ item, amount: parseFloat(amount), payer: selectedPayer, date: purchaseDate, category });
@@ -637,7 +809,7 @@
     document.getElementById('summaryContent').innerHTML = '<div class="loading-msg">Loading…</div>';
 
     try {
-      const url = `${settings.webAppUrl}?sheet=${encodeURIComponent('Vem betalade vad')}`;
+      const url = `${settings.webAppUrl}?sheet=${encodeURIComponent('Vem betalade vad')}&token=${encodeURIComponent(SECRET)}`;
       const res = await fetch(url);
       const data = await res.json();
       renderSummary(data.rows);
@@ -761,7 +933,7 @@
     btn.textContent = 'Saving…';
 
     try {
-      const url = `${settings.webAppUrl}?sheet=${encodeURIComponent('Vem betalade vad')}&action=settle&row=${rowNumber}`;
+      const url = `${settings.webAppUrl}?sheet=${encodeURIComponent('Vem betalade vad')}&action=settle&row=${rowNumber}&token=${encodeURIComponent(SECRET)}`;
       const res = await fetch(url);
       const data = await res.json();
       if (data.result === 'success') {
