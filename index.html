@@ -30,6 +30,36 @@
     padding: 24px 16px calc(var(--nav-h) + 24px);
   }
 
+  /* Budget toggle */
+  .budget-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px dashed var(--border);
+  }
+
+  .budget-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 6px;
+    cursor: pointer;
+    text-align: center;
+    background: var(--bg);
+    color: var(--ink-muted);
+    transition: all 0.15s;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .budget-btn.active-joint { background: var(--ink); border-color: var(--ink); color: white; }
+  .budget-btn.active-mattias { background: #2A4A7A; border-color: #2A4A7A; color: white; }
+  .budget-btn.active-melissa { background: var(--accent); border-color: var(--accent); color: white; }
+
   /* PIN screen */
   .pin-screen {
     position: fixed;
@@ -41,6 +71,10 @@
     justify-content: center;
     z-index: 999;
     padding: 32px 24px;
+  }
+
+  .pin-screen[style*="display: none"] {
+    pointer-events: none;
   }
 
   .pin-screen h1 {
@@ -536,7 +570,7 @@
     <button class="pin-key delete" onclick="pinDelete()">⌫</button>
   </div>
   <div class="pin-error" id="pinError"></div>
-  <div class="pin-hint">Hint 1: <span>Kjelle</span> · Hint 2: <span>Dryckesföretag Arkiv</span></div>
+  <div class="pin-hint">Hint — Mattias: <span>Kjelle</span> · Melissa: <span>Dryckesföretag Arkiv</span></div>
 </div>
 
 <header>
@@ -549,10 +583,6 @@
   <div class="card">
     <div class="setup-section" id="setupSection">
       <h2>⚙ Google Sheets Setup</h2>
-      <div class="field">
-        <label>Sheet / Tab name</label>
-        <input type="text" id="sheetName" placeholder="e.g. Expenses" value="Expenses" />
-      </div>
       <div class="setup-row">
         <div class="field">
           <label>Web App URL</label>
@@ -566,6 +596,13 @@
     <div id="setupCollapsed" class="hidden" style="margin-bottom:20px; padding-bottom:20px; border-bottom: 1px dashed var(--border); display:flex; justify-content:space-between; align-items:center;">
       <span style="font-size:0.72rem; color:var(--ink-muted); text-transform:uppercase; letter-spacing:0.08em;">✓ Sheet configured</span>
       <button class="collapse-btn" onclick="showSetup()">Edit</button>
+    </div>
+
+    <!-- Budget type toggle -->
+    <div class="budget-toggle">
+      <button class="budget-btn active-joint" id="btn-joint" onclick="setBudget('joint')">Joint</button>
+      <button class="budget-btn" id="btn-budget-mattias" onclick="setBudget('mattias')">Mattias</button>
+      <button class="budget-btn" id="btn-budget-melissa" onclick="setBudget('melissa')">Melissa</button>
     </div>
 
     <div class="field">
@@ -588,25 +625,36 @@
       <select id="category">
         <option value="">Select category…</option>
         <option value="Bills">Bills</option>
-        <option value="Groceries">Groceries</option>
+        <option value="Business">Business</option>
+        <option value="Entertainment">Entertainment</option>
         <option value="Food & Drink">Food & Drink</option>
+        <option value="Gifts">Gifts</option>
+        <option value="Groceries">Groceries</option>
+        <option value="Health & Wellbeing">Health & Wellbeing</option>
+        <option value="Investment">Investment</option>
         <option value="Other">Other</option>
+        <option value="Shopping">Shopping</option>
+        <option value="Subscriptions">Subscriptions</option>
+        <option value="Transport">Transport</option>
+        <option value="Travel">Travel</option>
       </select>
     </div>
 
-    <div class="field">
-      <label>Betalad</label>
-      <div class="betalad-group">
-        <button class="betalad-btn active-ja" id="btn-ja" onclick="setBetalad('Ja')">Ja</button>
-        <button class="betalad-btn" id="btn-nej" onclick="setBetalad('Nej')">Nej</button>
+    <div id="jointFields">
+      <div class="field">
+        <label>Betalad</label>
+        <div class="betalad-group">
+          <button class="betalad-btn active-ja" id="btn-ja" onclick="setBetalad('Ja')">Ja</button>
+          <button class="betalad-btn" id="btn-nej" onclick="setBetalad('Nej')">Nej</button>
+        </div>
       </div>
-    </div>
 
-    <div class="field">
-      <label>Vem betalade</label>
-      <div class="toggle-group">
-        <button class="toggle-btn" id="btn-mattias" onclick="setPayer('Mattias')">Mattias</button>
-        <button class="toggle-btn" id="btn-melissa" onclick="setPayer('Melissa')">Melissa</button>
+      <div class="field">
+        <label>Vem betalade</label>
+        <div class="toggle-group">
+          <button class="toggle-btn" id="btn-mattias" onclick="setPayer('Mattias')">Mattias</button>
+          <button class="toggle-btn" id="btn-melissa" onclick="setPayer('Melissa')">Melissa</button>
+        </div>
       </div>
     </div>
 
@@ -652,7 +700,7 @@
   // PIN & SECRET config
   const PINS = {
     '1194': { name: 'Mattias', secret: 'mm-expenses-2026' },
-    '4466': { name: 'Melissa', secret: 'mm-expenses-2026' }
+    '2244': { name: 'Melissa', secret: 'mm-expenses-2026' }
   };
 
   let SECRET = '';
@@ -696,14 +744,31 @@
 
   let selectedPayer = '';
   let selectedBetalad = 'Ja';
+  let selectedBudget = 'joint';
   let recentEntries = [];
+
+  function setBudget(type) {
+    selectedBudget = type;
+    document.getElementById('btn-joint').className = 'budget-btn' + (type === 'joint' ? ' active-joint' : '');
+    document.getElementById('btn-budget-mattias').className = 'budget-btn' + (type === 'mattias' ? ' active-mattias' : '');
+    document.getElementById('btn-budget-melissa').className = 'budget-btn' + (type === 'melissa' ? ' active-melissa' : '');
+    // Show/hide joint-only fields
+    document.getElementById('jointFields').style.display = type === 'joint' ? 'block' : 'none';
+    // Reset joint fields when switching away
+    if (type !== 'joint') {
+      selectedPayer = '';
+      selectedBudget = 'joint';
+      document.getElementById('btn-mattias').classList.remove('active');
+      document.getElementById('btn-melissa').classList.remove('active');
+      setBudget('joint');
+    }
+  }
 
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('purchaseDate').value = today;
 
   window.onload = () => {
     const saved = JSON.parse(localStorage.getItem('expenseSettings') || '{}');
-    if (saved.sheetName) document.getElementById('sheetName').value = saved.sheetName;
     if (saved.webAppUrl) document.getElementById('webAppUrl').value = saved.webAppUrl;
     if (saved.configured) {
       document.getElementById('setupSection').classList.add('hidden');
@@ -722,10 +787,9 @@
   }
 
   function saveSetup() {
-    const sheetName = document.getElementById('sheetName').value.trim();
     const webAppUrl = document.getElementById('webAppUrl').value.trim();
-    if (!sheetName || !webAppUrl) { showToast('Fill in all setup fields', 'error'); return; }
-    localStorage.setItem('expenseSettings', JSON.stringify({ sheetName, webAppUrl, configured: true }));
+    if (!webAppUrl) { showToast('Enter the Web App URL', 'error'); return; }
+    localStorage.setItem('expenseSettings', JSON.stringify({ webAppUrl, configured: true }));
     document.getElementById('setupSection').classList.add('hidden');
     document.getElementById('setupCollapsed').style.display = 'flex';
     showToast('Settings saved ✓', 'success');
@@ -757,19 +821,24 @@
     const amount = document.getElementById('amount').value;
     const category = document.getElementById('category').value;
 
-    if (!purchaseDate || !item || !amount || !category || !selectedPayer) {
+    const needsPayer = selectedBudget === 'joint';
+    if (!purchaseDate || !item || !amount || !category || (needsPayer && !selectedPayer)) {
       showToast('Please fill in all fields', 'error'); return;
     }
 
     const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
     const row = [timestamp, purchaseDate, item, parseFloat(amount), category, selectedBetalad, selectedPayer];
 
+    // Hardcoded sheet names per budget type
+    const sheetMap = { joint: 'Expenses', mattias: 'Mattias Expenses', melissa: 'Melissas Expenses' };
+    const targetSheet = sheetMap[selectedBudget];
+
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
     btn.textContent = 'Submitting…';
 
     try {
-      const url = `${settings.webAppUrl}?sheet=${encodeURIComponent(settings.sheetName)}`;
+      const url = `${settings.webAppUrl}?sheet=${encodeURIComponent(targetSheet)}`; 
       await fetch(url, {
         method: 'POST',
         mode: 'no-cors',
@@ -777,7 +846,7 @@
         body: JSON.stringify({ row, token: SECRET })
       });
 
-      recentEntries.unshift({ item, amount: parseFloat(amount), payer: selectedPayer, date: purchaseDate, category });
+      recentEntries.unshift({ item, amount: parseFloat(amount), payer: selectedPayer, date: purchaseDate, category, budget: selectedBudget });
       if (recentEntries.length > 5) recentEntries.pop();
       localStorage.setItem('recentEntries', JSON.stringify(recentEntries));
       renderRecent();
@@ -959,7 +1028,7 @@
       <div class="entry">
         <div class="entry-left">
           <span class="entry-item">${e.item}</span>
-          <span class="entry-meta">${e.date} · ${e.category} · ${e.payer}</span>
+          <span class="entry-meta">${e.date} · ${e.category} · ${e.budget === "joint" ? (e.payer || "Joint") : (e.budget === "mattias" ? "Mattias" : "Melissa")}</span>
         </div>
         <span class="entry-amount">${e.amount.toLocaleString('sv-SE')} kr</span>
       </div>
