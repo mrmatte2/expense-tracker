@@ -745,23 +745,29 @@
   let selectedPayer = '';
   let selectedBetalad = 'Ja';
   let selectedBudget = 'joint';
-  let recentEntries = [];
+  let recentEntries = { joint: [], mattias: [], melissa: [] };
 
   function setBudget(type) {
     selectedBudget = type;
-    document.getElementById('btn-joint').className = 'budget-btn' + (type === 'joint' ? ' active-joint' : '');
-    document.getElementById('btn-budget-mattias').className = 'budget-btn' + (type === 'mattias' ? ' active-mattias' : '');
-    document.getElementById('btn-budget-melissa').className = 'budget-btn' + (type === 'melissa' ? ' active-melissa' : '');
-    // Show/hide joint-only fields
+
+    // Reset all budget buttons then activate selected
+    document.getElementById('btn-joint').className = 'budget-btn';
+    document.getElementById('btn-budget-mattias').className = 'budget-btn';
+    document.getElementById('btn-budget-melissa').className = 'budget-btn';
+    if (type === 'joint') document.getElementById('btn-joint').className = 'budget-btn active-joint';
+    if (type === 'mattias') document.getElementById('btn-budget-mattias').className = 'budget-btn active-mattias';
+    if (type === 'melissa') document.getElementById('btn-budget-melissa').className = 'budget-btn active-melissa';
+
+    // Show joint-only fields only for joint
     document.getElementById('jointFields').style.display = type === 'joint' ? 'block' : 'none';
-    // Reset joint fields when switching away
+
+    // Reset payer buttons when switching away from joint
     if (type !== 'joint') {
       selectedPayer = '';
-      selectedBudget = 'joint';
       document.getElementById('btn-mattias').classList.remove('active');
       document.getElementById('btn-melissa').classList.remove('active');
-      setBudget('joint');
     }
+    renderRecent();
   }
 
   const today = new Date().toISOString().split('T')[0];
@@ -774,7 +780,11 @@
       document.getElementById('setupSection').classList.add('hidden');
       document.getElementById('setupCollapsed').style.display = 'flex';
     }
-    recentEntries = JSON.parse(localStorage.getItem('recentEntries') || '[]');
+    recentEntries = {
+      joint: JSON.parse(localStorage.getItem('recentEntries_joint') || '[]'),
+      mattias: JSON.parse(localStorage.getItem('recentEntries_mattias') || '[]'),
+      melissa: JSON.parse(localStorage.getItem('recentEntries_melissa') || '[]')
+    };
     renderRecent();
   };
 
@@ -830,7 +840,7 @@
     const row = [timestamp, purchaseDate, item, parseFloat(amount), category, selectedBetalad, selectedPayer];
 
     // Hardcoded sheet names per budget type
-    const sheetMap = { joint: 'Expenses', mattias: 'Mattias Expenses', melissa: 'Melissas Expenses' };
+    const sheetMap = { joint: 'Joint Expenses', mattias: 'Mattias Expenses', melissa: 'Melissas Expenses' };
     const targetSheet = sheetMap[selectedBudget];
 
     const btn = document.getElementById('submitBtn');
@@ -846,9 +856,9 @@
         body: JSON.stringify({ row, token: SECRET })
       });
 
-      recentEntries.unshift({ item, amount: parseFloat(amount), payer: selectedPayer, date: purchaseDate, category, budget: selectedBudget });
-      if (recentEntries.length > 5) recentEntries.pop();
-      localStorage.setItem('recentEntries', JSON.stringify(recentEntries));
+      recentEntries[selectedBudget].unshift({ item, amount: parseFloat(amount), payer: selectedPayer, date: purchaseDate, category, budget: selectedBudget });
+      if (recentEntries[selectedBudget].length > 5) recentEntries[selectedBudget].pop();
+      localStorage.setItem('recentEntries_' + selectedBudget, JSON.stringify(recentEntries[selectedBudget]));
       renderRecent();
 
       showToast('Expense added ✓', 'success');
@@ -1020,11 +1030,12 @@
 
   function renderRecent() {
     const list = document.getElementById('recentList');
-    if (recentEntries.length === 0) {
+    const entries = recentEntries[selectedBudget] || [];
+    if (entries.length === 0) {
       list.innerHTML = '<p style="font-size:0.75rem;color:var(--ink-muted);padding:0 4px;">No entries yet.</p>';
       return;
     }
-    list.innerHTML = recentEntries.map(e => `
+    list.innerHTML = entries.map(e => `
       <div class="entry">
         <div class="entry-left">
           <span class="entry-item">${e.item}</span>
