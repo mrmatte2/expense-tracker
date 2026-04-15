@@ -1,1057 +1,202 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Utgifter & Räkningar</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg: #F5F0E8;
-    --surface: #FDFAF4;
-    --ink: #1A1714;
-    --ink-muted: #7A7068;
-    --accent: #C84B2F;
-    --accent-light: #F2E8E4;
-    --success: #2D6A4F;
-    --success-light: #D8F0E6;
-    --border: #DDD8CE;
-    --shadow: 0 2px 12px rgba(26,23,20,0.08);
-    --nav-h: 64px;
-  }
-
-  body {
-    font-family: 'DM Mono', monospace;
-    background: var(--bg);
-    color: var(--ink);
-    min-height: 100vh;
-    padding: 24px 16px calc(var(--nav-h) + 24px);
-  }
-
-  /* Budget toggle */
-  .budget-toggle {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 6px;
-    margin-bottom: 20px;
-    padding-bottom: 20px;
-    border-bottom: 1px dashed var(--border);
-  }
-
-  .budget-btn {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 6px;
-    cursor: pointer;
-    text-align: center;
-    background: var(--bg);
-    color: var(--ink-muted);
-    transition: all 0.15s;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .budget-btn.active-joint { background: var(--ink); border-color: var(--ink); color: white; }
-  .budget-btn.active-mattias { background: #2A4A7A; border-color: #2A4A7A; color: white; }
-  .budget-btn.active-melissa { background: var(--accent); border-color: var(--accent); color: white; }
-
-  /* PIN screen */
-  .pin-screen {
-    position: fixed;
-    inset: 0;
-    background: var(--bg);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 999;
-    padding: 32px 24px;
-  }
-
-  .pin-screen[style*="display: none"] {
-    pointer-events: none;
-  }
-
-  .pin-screen h1 {
-    font-family: 'Fraunces', serif;
-    font-weight: 600;
-    font-size: 1.9rem;
-    letter-spacing: -0.5px;
-    margin-bottom: 6px;
-  }
-
-  .pin-screen h1 span { color: var(--accent); font-style: italic; }
-
-  .pin-screen p {
-    font-size: 0.72rem;
-    color: var(--ink-muted);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 40px;
-  }
-
-  .pin-dots {
-    display: flex;
-    gap: 14px;
-    margin-bottom: 32px;
-  }
-
-  .pin-dot {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    border: 2px solid var(--border);
-    background: transparent;
-    transition: all 0.15s;
-  }
-
-  .pin-dot.filled {
-    background: var(--accent);
-    border-color: var(--accent);
-  }
-
-  .pin-keypad {
-    display: grid;
-    grid-template-columns: repeat(3, 72px);
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-
-  .pin-key {
-    font-family: 'Fraunces', serif;
-    font-size: 1.3rem;
-    font-weight: 600;
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--ink);
-    cursor: pointer;
-    transition: all 0.1s;
-    box-shadow: var(--shadow);
-  }
-
-  .pin-key:active { transform: scale(0.93); background: var(--accent-light); }
-  .pin-key.empty { border: none; background: transparent; box-shadow: none; cursor: default; }
-  .pin-key.delete { font-size: 1rem; font-family: 'DM Mono', monospace; }
-
-  .pin-error {
-    font-size: 0.72rem;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    height: 20px;
-    transition: opacity 0.2s;
-  }
-
-  .pin-hint {
-    font-size: 0.68rem;
-    color: var(--ink-muted);
-    margin-top: 16px;
-    text-align: center;
-    letter-spacing: 0.04em;
-  }
-
-  .pin-hint span {
-    color: var(--ink);
-    font-weight: 500;
-  }
-
-  header { text-align: center; margin-bottom: 28px; }
-
-  header h1 {
-    font-family: 'Fraunces', serif;
-    font-weight: 600;
-    font-size: 1.9rem;
-    letter-spacing: -0.5px;
-    line-height: 1.1;
-  }
-
-  header h1 span { color: var(--accent); font-style: italic; }
-
-  header p {
-    font-size: 0.72rem;
-    color: var(--ink-muted);
-    margin-top: 6px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .bottom-nav {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    height: var(--nav-h);
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    display: flex;
-    z-index: 50;
-    box-shadow: 0 -4px 16px rgba(26,23,20,0.06);
-  }
-
-  .nav-btn {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--ink-muted);
-    transition: color 0.15s;
-  }
-
-  .nav-btn.active { color: var(--accent); }
-  .nav-btn svg { width: 22px; height: 22px; }
-
-  .page { display: none; }
-  .page.active { display: block; }
-
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 24px;
-    max-width: 480px;
-    margin: 0 auto;
-    box-shadow: var(--shadow);
-  }
-
-  .setup-section {
-    margin-bottom: 24px;
-    padding-bottom: 24px;
-    border-bottom: 1px dashed var(--border);
-  }
-
-  .setup-section h2 {
-    font-family: 'Fraunces', serif;
-    font-weight: 300;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--ink-muted);
-    margin-bottom: 12px;
-  }
-
-  .setup-row { display: flex; gap: 8px; align-items: flex-end; }
-  .setup-row .field { flex: 1; }
-
-  .collapse-btn {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.7rem;
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px 12px;
-    color: var(--ink-muted);
-    cursor: pointer;
-    white-space: nowrap;
-    height: 40px;
-    transition: all 0.15s;
-  }
-  .collapse-btn:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
-
-  .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
-
-  label {
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--ink-muted);
-    font-weight: 500;
-  }
-
-  input, select {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.88rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 14px;
-    color: var(--ink);
-    width: 100%;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    -webkit-appearance: none;
-    appearance: none;
-  }
-
-  input:focus, select:focus {
-    outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-light);
-  }
-
-  .toggle-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-
-  .toggle-btn {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.82rem;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px;
-    cursor: pointer;
-    text-align: center;
-    background: var(--bg);
-    color: var(--ink-muted);
-    transition: all 0.15s;
-    font-weight: 500;
-  }
-
-  .toggle-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
-
-  .betalad-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-
-  .betalad-btn {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.82rem;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px;
-    cursor: pointer;
-    text-align: center;
-    background: var(--bg);
-    color: var(--ink-muted);
-    transition: all 0.15s;
-  }
-
-  .betalad-btn.active-ja { background: var(--success); border-color: var(--success); color: white; }
-  .betalad-btn.active-nej { background: var(--ink); border-color: var(--ink); color: white; }
-
-  .submit-btn {
-    width: 100%;
-    font-family: 'Fraunces', serif;
-    font-size: 1.05rem;
-    font-weight: 600;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    padding: 15px;
-    cursor: pointer;
-    margin-top: 8px;
-    transition: all 0.15s;
-  }
-
-  .submit-btn:hover { background: #A83A20; transform: translateY(-1px); }
-  .submit-btn:active { transform: translateY(0); }
-  .submit-btn:disabled { background: var(--border); color: var(--ink-muted); transform: none; cursor: not-allowed; }
-
-  .recent { max-width: 480px; margin: 20px auto 0; }
-
-  .recent h2 {
-    font-family: 'Fraunces', serif;
-    font-weight: 300;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--ink-muted);
-    margin-bottom: 10px;
-    padding: 0 4px;
-  }
-
-  .entry {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 12px 16px;
-    margin-bottom: 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.8rem;
-  }
-
-  .entry-left { display: flex; flex-direction: column; gap: 2px; }
-  .entry-item { font-weight: 500; color: var(--ink); }
-  .entry-meta { color: var(--ink-muted); font-size: 0.7rem; }
-  .entry-amount { font-weight: 500; color: var(--accent); font-size: 0.9rem; }
-
-  /* Summary */
-  .summary-header {
-    max-width: 480px;
-    margin: 0 auto 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .summary-header h2 {
-    font-family: 'Fraunces', serif;
-    font-weight: 300;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--ink-muted);
-  }
-
-  .refresh-btn {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.68rem;
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 5px 10px;
-    color: var(--ink-muted);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .refresh-btn:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
-
-  .month-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 16px;
-    max-width: 480px;
-    margin: 0 auto 12px;
-    box-shadow: var(--shadow);
-  }
-
-  .month-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-  }
-
-  .month-label {
-    font-family: 'Fraunces', serif;
-    font-weight: 600;
-    font-size: 1rem;
-    color: var(--ink);
-  }
-
-  .month-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-
-  .month-stat {
-    background: var(--bg);
-    border-radius: 10px;
-    padding: 10px 12px;
-  }
-
-  .month-stat-label {
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--ink-muted);
-    margin-bottom: 3px;
-  }
-
-  .month-stat-value {
-    font-size: 0.88rem;
-    font-weight: 500;
-    color: var(--ink);
-  }
-
-  .month-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 10px;
-    border-top: 1px dashed var(--border);
-    font-size: 0.78rem;
-  }
-
-  .owed-text { color: var(--ink); }
-  .owed-amount { font-weight: 500; color: var(--accent); }
-
-  .settled-badge {
-    font-size: 0.65rem;
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: var(--success-light);
-    color: var(--success);
-    font-weight: 500;
-  }
-
-  .unsettled-badge {
-    font-size: 0.65rem;
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: #FEF3CD;
-    color: #7A5A00;
-    font-weight: 500;
-  }
-
-  .settle-btn {
-    width: 100%;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.78rem;
-    background: none;
-    border: 1px solid var(--success);
-    border-radius: 10px;
-    padding: 10px;
-    color: var(--success);
-    cursor: pointer;
-    margin-top: 12px;
-    transition: all 0.15s;
-  }
-  .settle-btn:hover { background: var(--success-light); }
-  .settle-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  .loading-msg {
-    text-align: center;
-    color: var(--ink-muted);
-    font-size: 0.78rem;
-    padding: 32px;
-  }
-
-  .toast {
-    position: fixed;
-    bottom: calc(var(--nav-h) + 12px);
-    left: 50%;
-    transform: translateX(-50%) translateY(80px);
-    background: var(--ink);
-    color: white;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.8rem;
-    padding: 12px 20px;
-    border-radius: 999px;
-    opacity: 0;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    white-space: nowrap;
-    z-index: 100;
-  }
-
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  .toast.success { background: var(--success); }
-  .toast.error { background: var(--accent); }
-
-  .hidden { display: none; }
-
-  select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237A7068' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 14px center;
-    padding-right: 36px;
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Utgifter & Räkningar</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#F5F0E8">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Utgifter">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/layout.css">
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
-<!-- PIN Screen -->
-<div class="pin-screen" id="pinScreen">
-  <h1>Utgifter <span>&</span> Räkningar</h1>
-  <p>Mattias & Melissa</p>
-  <div class="pin-dots">
-    <div class="pin-dot" id="dot0"></div>
-    <div class="pin-dot" id="dot1"></div>
-    <div class="pin-dot" id="dot2"></div>
-    <div class="pin-dot" id="dot3"></div>
+<!-- ── Auth screen ──────────────────────────────────────────────────────── -->
+<div id="auth-screen">
+  <div class="auth-inner">
+    <h1 class="brand">Utgifter <span>&</span> Räkningar</h1>
+    <p class="brand-sub">Mattias & Melissa</p>
+    <div id="google-btn"></div>
+    <p id="auth-error" class="auth-error"></p>
   </div>
-  <div class="pin-keypad">
-    <button class="pin-key" onclick="pinPress('1')">1</button>
-    <button class="pin-key" onclick="pinPress('2')">2</button>
-    <button class="pin-key" onclick="pinPress('3')">3</button>
-    <button class="pin-key" onclick="pinPress('4')">4</button>
-    <button class="pin-key" onclick="pinPress('5')">5</button>
-    <button class="pin-key" onclick="pinPress('6')">6</button>
-    <button class="pin-key" onclick="pinPress('7')">7</button>
-    <button class="pin-key" onclick="pinPress('8')">8</button>
-    <button class="pin-key" onclick="pinPress('9')">9</button>
-    <button class="pin-key empty"></button>
-    <button class="pin-key" onclick="pinPress('0')">0</button>
-    <button class="pin-key delete" onclick="pinDelete()">⌫</button>
-  </div>
-  <div class="pin-error" id="pinError"></div>
-  <div class="pin-hint">Hint — Mattias: <span>Kjelle</span> · Melissa: <span>Dryckesföretag Arkiv</span></div>
 </div>
 
-<header>
-  <h1>Utgifter <span>&</span> Räkningar</h1>
-  <p>Mattias & Melissa</p>
-</header>
+<!-- ── App ─────────────────────────────────────────────────────────────── -->
+<div id="app" hidden>
 
-<!-- PAGE: Add -->
-<div class="page active" id="page-add">
-  <div class="card">
-    <div class="setup-section" id="setupSection">
-      <h2>⚙ Google Sheets Setup</h2>
-      <div class="setup-row">
+  <header class="app-header">
+    <h1 class="brand-sm">Utgifter <span>&</span> Räkningar</h1>
+    <div class="header-right">
+      <span id="header-user"></span>
+      <button id="signout-btn" class="btn-signout" title="Sign out">↩</button>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- Add -->
+    <section id="page-add" class="page active">
+
+      <!-- Setup (collapsible) -->
+      <div id="setup-open" class="card setup-card">
+        <h2 class="section-label">⚙ Google Sheets Setup</h2>
         <div class="field">
-          <label>Web App URL</label>
-          <input type="text" id="webAppUrl" placeholder="https://script.google.com/macros/s/..." value="https://script.google.com/macros/s/AKfycbydG-v9EC2Ej420ZQoFSBk-VkeFRyObKd1bi1mTwBGOem1g9g1oRdCEWPVm_iu7rmOf/exec" />
+          <label for="web-app-url">Web App URL</label>
+          <input type="url" id="web-app-url" placeholder="https://script.google.com/macros/s/...">
         </div>
-        <button class="collapse-btn" onclick="saveSetup()">Save & Hide</button>
+        <div class="row-end">
+          <button id="save-setup-btn" class="btn-secondary">Save & Hide</button>
+        </div>
+        <p class="hint">Saved locally in your browser.</p>
       </div>
-      <p style="font-size:0.65rem; color:var(--ink-muted); margin-top:4px;">Settings are saved locally in your browser.</p>
-    </div>
-
-    <div id="setupCollapsed" class="hidden" style="margin-bottom:20px; padding-bottom:20px; border-bottom: 1px dashed var(--border); display:flex; justify-content:space-between; align-items:center;">
-      <span style="font-size:0.72rem; color:var(--ink-muted); text-transform:uppercase; letter-spacing:0.08em;">✓ Sheet configured</span>
-      <button class="collapse-btn" onclick="showSetup()">Edit</button>
-    </div>
-
-    <!-- Budget type toggle -->
-    <div class="budget-toggle">
-      <button class="budget-btn active-joint" id="btn-joint" onclick="setBudget('joint')">Joint</button>
-      <button class="budget-btn" id="btn-budget-mattias" onclick="setBudget('mattias')">Mattias</button>
-      <button class="budget-btn" id="btn-budget-melissa" onclick="setBudget('melissa')">Melissa</button>
-    </div>
-
-    <div class="field">
-      <label>Purchase Date</label>
-      <input type="date" id="purchaseDate" />
-    </div>
-
-    <div class="field">
-      <label>Item</label>
-      <input type="text" id="item" placeholder="e.g. ICA Maxi groceries" />
-    </div>
-
-    <div class="field">
-      <label>Amount (kr)</label>
-      <input type="number" id="amount" placeholder="0" inputmode="decimal" />
-    </div>
-
-    <div class="field">
-      <label>Category</label>
-      <select id="category">
-        <option value="">Select category…</option>
-        <option value="Bills">Bills</option>
-        <option value="Business">Business</option>
-        <option value="Entertainment">Entertainment</option>
-        <option value="Food & Drink">Food & Drink</option>
-        <option value="Gifts">Gifts</option>
-        <option value="Groceries">Groceries</option>
-        <option value="Health & Wellbeing">Health & Wellbeing</option>
-        <option value="Investment">Investment</option>
-        <option value="Other">Other</option>
-        <option value="Shopping">Shopping</option>
-        <option value="Subscriptions">Subscriptions</option>
-        <option value="Transport">Transport</option>
-        <option value="Travel">Travel</option>
-      </select>
-    </div>
-
-    <div id="jointFields">
-      <div class="field">
-        <label>Betalad</label>
-        <div class="betalad-group">
-          <button class="betalad-btn active-ja" id="btn-ja" onclick="setBetalad('Ja')">Ja</button>
-          <button class="betalad-btn" id="btn-nej" onclick="setBetalad('Nej')">Nej</button>
-        </div>
+      <div id="setup-closed" class="setup-closed hidden">
+        <span class="setup-ok">✓ Sheet configured</span>
+        <button id="edit-setup-btn" class="btn-ghost">Edit</button>
       </div>
 
-      <div class="field">
-        <label>Vem betalade</label>
-        <div class="toggle-group">
-          <button class="toggle-btn" id="btn-mattias" onclick="setPayer('Mattias')">Mattias</button>
-          <button class="toggle-btn" id="btn-melissa" onclick="setPayer('Melissa')">Melissa</button>
+      <!-- Expense form -->
+      <div class="card">
+
+        <div class="field">
+          <label>Budget</label>
+          <div class="seg-group" id="budget-toggle">
+            <button class="seg-btn active" data-value="joint">Joint</button>
+            <button class="seg-btn" data-value="mattias">Mattias</button>
+            <button class="seg-btn" data-value="melissa">Melissa</button>
+          </div>
         </div>
+
+        <div class="field" id="payer-field">
+          <label>Who paid?</label>
+          <div class="seg-group" id="payer-toggle">
+            <button class="seg-btn" data-value="Mattias">Mattias</button>
+            <button class="seg-btn" data-value="Melissa">Melissa</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="item">Item</label>
+          <input type="text" id="item" placeholder="e.g. ICA Maxi groceries" autocomplete="off">
+        </div>
+
+        <div class="field">
+          <label for="amount">Amount (kr)</label>
+          <input type="number" id="amount" placeholder="0" inputmode="decimal" min="0">
+        </div>
+
+        <div class="field">
+          <label for="category">Category</label>
+          <select id="category">
+            <option value="">Select category…</option>
+            <option>Bills</option>
+            <option>Business</option>
+            <option>Entertainment</option>
+            <option>Food & Drink</option>
+            <option>Gifts</option>
+            <option>Groceries</option>
+            <option>Health & Wellbeing</option>
+            <option>Investment</option>
+            <option>Other</option>
+            <option>Shopping</option>
+            <option>Subscriptions</option>
+            <option>Transport</option>
+            <option>Travel</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="purchase-date">Date</label>
+          <input type="date" id="purchase-date">
+        </div>
+
+        <button id="submit-btn" class="btn-primary">Add Expense</button>
       </div>
+
+      <!-- Recent -->
+      <div class="list-section">
+        <h2 class="section-label">Added this session</h2>
+        <div id="recent-list"></div>
+      </div>
+
+    </section>
+
+    <!-- History -->
+    <section id="page-history" class="page">
+      <div class="page-toolbar">
+        <div class="seg-group" id="history-budget-toggle">
+          <button class="seg-btn active" data-value="joint">Joint</button>
+          <button class="seg-btn" data-value="mattias">Mattias</button>
+          <button class="seg-btn" data-value="melissa">Melissa</button>
+        </div>
+        <button id="history-refresh-btn" class="btn-ghost">↻</button>
+      </div>
+      <div id="history-list"><p class="loading-msg">Select a budget and tap ↻ to load.</p></div>
+    </section>
+
+    <!-- Summary -->
+    <section id="page-summary" class="page">
+      <div class="page-toolbar">
+        <h2 class="section-label">Monthly Summary</h2>
+        <button id="summary-refresh-btn" class="btn-ghost">↻ Refresh</button>
+      </div>
+      <div id="summary-content"><p class="loading-msg">Tap refresh to load summary.</p></div>
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-page="add">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+      </svg>
+      Add
+    </button>
+    <button class="nav-btn" data-page="history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+        <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+      </svg>
+      History
+    </button>
+    <button class="nav-btn" data-page="summary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/>
+      </svg>
+      Summary
+    </button>
+  </nav>
+
+</div>
+
+<!-- ── Confirm modal ────────────────────────────────────────────────────── -->
+<div id="modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <p id="modal-message" class="modal-message"></p>
+    <div class="modal-actions">
+      <button id="modal-cancel" class="btn-secondary">Cancel</button>
+      <button id="modal-confirm" class="btn-primary">Confirm</button>
     </div>
-
-    <button class="submit-btn" id="submitBtn" onclick="submitEntry()">Add Expense</button>
-  </div>
-
-  <div class="recent">
-    <h2>Recent entries</h2>
-    <div id="recentList"></div>
   </div>
 </div>
 
-<!-- PAGE: Summary -->
-<div class="page" id="page-summary">
-  <div class="summary-header">
-    <h2>Monthly Summary</h2>
-    <button class="refresh-btn" onclick="loadSummary()">↻ Refresh</button>
-  </div>
-  <div id="summaryContent">
-    <div class="loading-msg">Tap refresh to load summary.</div>
-  </div>
-</div>
+<!-- ── Toast ────────────────────────────────────────────────────────────── -->
+<div id="toast" class="toast"></div>
 
-<!-- Bottom nav -->
-<nav class="bottom-nav">
-  <button class="nav-btn active" id="nav-add" onclick="switchPage('add')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
-    </svg>
-    Add
-  </button>
-  <button class="nav-btn" id="nav-summary" onclick="switchPage('summary')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/>
-    </svg>
-    Summary
-  </button>
-</nav>
-
-<div class="toast" id="toast"></div>
-
-<script>
-  // PIN & SECRET config
-  const PINS = {
-    '1194': { name: 'Mattias', secret: 'mm-expenses-2026' },
-    '4466': { name: 'Melissa', secret: 'mm-expenses-2026' }
-  };
-
-  let SECRET = '';
-  let pinEntry = '';
-
-  function pinPress(digit) {
-    if (pinEntry.length >= 4) return;
-    pinEntry += digit;
-    updateDots();
-    if (pinEntry.length === 4) checkPin();
-  }
-
-  function pinDelete() {
-    pinEntry = pinEntry.slice(0, -1);
-    updateDots();
-    document.getElementById('pinError').textContent = '';
-  }
-
-  function updateDots() {
-    for (let i = 0; i < 4; i++) {
-      document.getElementById('dot' + i).classList.toggle('filled', i < pinEntry.length);
-    }
-  }
-
-  function checkPin() {
-    const match = PINS[pinEntry];
-    if (match) {
-      SECRET = match.secret;
-      document.getElementById('pinScreen').style.display = 'none';
-      // Update stored settings with secret
-      const saved = JSON.parse(localStorage.getItem('expenseSettings') || '{}');
-      saved.secret = SECRET;
-      localStorage.setItem('expenseSettings', JSON.stringify(saved));
-    } else {
-      document.getElementById('pinError').textContent = 'Wrong PIN, try again';
-      pinEntry = '';
-      updateDots();
-      setTimeout(() => document.getElementById('pinError').textContent = '', 2000);
-    }
-  }
-
-  let selectedPayer = '';
-  let selectedBetalad = 'Ja';
-  let selectedBudget = 'joint';
-  let recentEntries = { joint: [], mattias: [], melissa: [] };
-
-  function setBudget(type) {
-    selectedBudget = type;
-
-    // Reset all budget buttons then activate selected
-    document.getElementById('btn-joint').className = 'budget-btn';
-    document.getElementById('btn-budget-mattias').className = 'budget-btn';
-    document.getElementById('btn-budget-melissa').className = 'budget-btn';
-    if (type === 'joint') document.getElementById('btn-joint').className = 'budget-btn active-joint';
-    if (type === 'mattias') document.getElementById('btn-budget-mattias').className = 'budget-btn active-mattias';
-    if (type === 'melissa') document.getElementById('btn-budget-melissa').className = 'budget-btn active-melissa';
-
-    // Show joint-only fields only for joint
-    document.getElementById('jointFields').style.display = type === 'joint' ? 'block' : 'none';
-
-    // Reset payer buttons when switching away from joint
-    if (type !== 'joint') {
-      selectedPayer = '';
-      document.getElementById('btn-mattias').classList.remove('active');
-      document.getElementById('btn-melissa').classList.remove('active');
-    }
-    renderRecent();
-  }
-
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('purchaseDate').value = today;
-
-  window.onload = () => {
-    const saved = JSON.parse(localStorage.getItem('expenseSettings') || '{}');
-    if (saved.webAppUrl) document.getElementById('webAppUrl').value = saved.webAppUrl;
-    if (saved.configured) {
-      document.getElementById('setupSection').classList.add('hidden');
-      document.getElementById('setupCollapsed').style.display = 'flex';
-    }
-    recentEntries = {
-      joint: JSON.parse(localStorage.getItem('recentEntries_joint') || '[]'),
-      mattias: JSON.parse(localStorage.getItem('recentEntries_mattias') || '[]'),
-      melissa: JSON.parse(localStorage.getItem('recentEntries_melissa') || '[]')
-    };
-    renderRecent();
-  };
-
-  function switchPage(page) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('page-' + page).classList.add('active');
-    document.getElementById('nav-' + page).classList.add('active');
-    if (page === 'summary') loadSummary();
-  }
-
-  function saveSetup() {
-    const webAppUrl = document.getElementById('webAppUrl').value.trim();
-    if (!webAppUrl) { showToast('Enter the Web App URL', 'error'); return; }
-    localStorage.setItem('expenseSettings', JSON.stringify({ webAppUrl, configured: true }));
-    document.getElementById('setupSection').classList.add('hidden');
-    document.getElementById('setupCollapsed').style.display = 'flex';
-    showToast('Settings saved ✓', 'success');
-  }
-
-  function showSetup() {
-    document.getElementById('setupSection').classList.remove('hidden');
-    document.getElementById('setupCollapsed').style.display = 'none';
-  }
-
-  function setPayer(name) {
-    selectedPayer = name;
-    document.getElementById('btn-mattias').classList.toggle('active', name === 'Mattias');
-    document.getElementById('btn-melissa').classList.toggle('active', name === 'Melissa');
-  }
-
-  function setBetalad(val) {
-    selectedBetalad = val;
-    document.getElementById('btn-ja').className = 'betalad-btn' + (val === 'Ja' ? ' active-ja' : '');
-    document.getElementById('btn-nej').className = 'betalad-btn' + (val === 'Nej' ? ' active-nej' : '');
-  }
-
-  async function submitEntry() {
-    const settings = JSON.parse(localStorage.getItem('expenseSettings') || '{}');
-    if (!settings.webAppUrl) { showToast('Configure your sheet first', 'error'); showSetup(); return; }
-
-    const purchaseDate = document.getElementById('purchaseDate').value;
-    const item = document.getElementById('item').value.trim();
-    const amount = document.getElementById('amount').value;
-    const category = document.getElementById('category').value;
-
-    const needsPayer = selectedBudget === 'joint';
-    if (!purchaseDate || !item || !amount || !category || (needsPayer && !selectedPayer)) {
-      showToast('Please fill in all fields', 'error'); return;
-    }
-
-    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    const row = [timestamp, purchaseDate, item, parseFloat(amount), category, selectedBetalad, selectedPayer];
-
-    // Hardcoded sheet names per budget type
-    const sheetMap = { joint: 'Joint Expenses', mattias: 'Mattias Expenses', melissa: 'Melissas Expenses' };
-    const targetSheet = sheetMap[selectedBudget];
-
-    const btn = document.getElementById('submitBtn');
-    btn.disabled = true;
-    btn.textContent = 'Submitting…';
-
-    try {
-      const url = `${settings.webAppUrl}?sheet=${encodeURIComponent(targetSheet)}`; 
-      await fetch(url, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ row, token: SECRET })
-      });
-
-      recentEntries[selectedBudget].unshift({ item, amount: parseFloat(amount), payer: selectedPayer, date: purchaseDate, category, budget: selectedBudget });
-      if (recentEntries[selectedBudget].length > 5) recentEntries[selectedBudget].pop();
-      localStorage.setItem('recentEntries_' + selectedBudget, JSON.stringify(recentEntries[selectedBudget]));
-      renderRecent();
-
-      showToast('Expense added ✓', 'success');
-      document.getElementById('item').value = '';
-      document.getElementById('amount').value = '';
-      document.getElementById('category').value = '';
-      document.getElementById('purchaseDate').value = today;
-      selectedPayer = '';
-      document.getElementById('btn-mattias').classList.remove('active');
-      document.getElementById('btn-melissa').classList.remove('active');
-
-    } catch (e) {
-      showToast('Error: ' + e.message, 'error');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Add Expense';
-    }
-  }
-
-  async function loadSummary() {
-    const settings = JSON.parse(localStorage.getItem('expenseSettings') || '{}');
-    if (!settings.webAppUrl) {
-      document.getElementById('summaryContent').innerHTML = '<div class="loading-msg">Configure your sheet in the Add tab first.</div>';
-      return;
-    }
-
-    document.getElementById('summaryContent').innerHTML = '<div class="loading-msg">Loading…</div>';
-
-    try {
-      const url = `${settings.webAppUrl}?sheet=${encodeURIComponent('Vem betalade vad')}&token=${encodeURIComponent(SECRET)}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      renderSummary(data.rows);
-    } catch (e) {
-      document.getElementById('summaryContent').innerHTML =
-        `<div class="loading-msg">Could not load summary.<br><span style="font-size:0.7rem;opacity:0.7">${e.message}</span></div>`;
-    }
-  }
-
-  function parseMonth(val) {
-    if (!val) return '—';
-    const s = String(val).trim();
-    // Google Sheets sends last day of month as ISO timestamp in UTC
-    // e.g. 2026-03-01 Stockholm -> 2026-02-28T13:00:00.000Z
-    // So we parse the UTC date and add 1 day to get the correct month
-    const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
-    if (isoMatch) {
-      const d = new Date(s);
-      // Add 1 day to compensate for the end-of-month UTC shift
-      d.setUTCDate(d.getUTCDate() + 1);
-      const year = d.getUTCFullYear();
-      const month = d.getUTCMonth();
-      return new Date(year, month, 1).toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
-    }
-    // Plain YYYY-MM-DD string
-    const plainMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (plainMatch) {
-      const d = new Date(parseInt(plainMatch[1]), parseInt(plainMatch[2]) - 1, 1);
-      return d.toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
-    }
-    return s;
-  }
-
-  function fmt(v) {
-    const n = parseFloat(v);
-    return isNaN(n) ? (v || '—') : n.toLocaleString('sv-SE') + ' kr';
-  }
-
-  function renderSummary(rows) {
-    if (!rows || rows.length < 2) {
-      document.getElementById('summaryContent').innerHTML = '<div class="loading-msg">No summary data found.</div>';
-      return;
-    }
-
-    const headers = rows[0].map(h => String(h).trim().toLowerCase());
-    const dataRows = rows.slice(1).filter(r => r[0] !== '' && r[0] !== null && r[0] !== undefined);
-
-    // Map header names to indices flexibly
-    const idx = (names) => {
-      for (const n of names) {
-        const i = headers.findIndex(h => h.includes(n));
-        if (i !== -1) return i;
-      }
-      return -1;
-    };
-
-    const iMonth    = idx(['month', 'månad']) !== -1 ? idx(['month', 'månad']) : 0;
-    const iMelissa  = idx(['melissa']) !== -1 ? idx(['melissa']) : 1;
-    const iMattias  = idx(['mattias']) !== -1 ? idx(['mattias']) : 2;
-    const iTotal    = idx(['total']) !== -1 ? idx(['total']) : 3;
-    const iEach     = idx(['each', 'vardera']) !== -1 ? idx(['each', 'vardera']) : 4;
-    const iWho      = idx(['who', 'vem']) !== -1 ? idx(['who', 'vem']) : 5;
-    const iAmount   = idx(['amount', 'belopp', 'how much']) !== -1 ? idx(['amount', 'belopp', 'how much']) : 6;
-    const iSettled  = idx(['settled', 'reglerad']) !== -1 ? idx(['settled', 'reglerad']) : 7;
-
-    const html = dataRows.map((r, rowIndex) => {
-      const monthLabel = parseMonth(r[iMonth]);
-      const melissa  = r[iMelissa];
-      const mattias  = r[iMattias];
-      const total    = r[iTotal];
-      const each     = r[iEach];
-      const who      = String(r[iWho] || '');
-      const amount   = r[iAmount];
-      const settled  = r[iSettled];
-
-      const isSettled = settled === true || String(settled).toLowerCase() === 'true' || String(settled).toLowerCase() === 'ja' || settled === 'TRUE';
-
-      return `
-        <div class="month-card">
-          <div class="month-card-header">
-            <span class="month-label">${monthLabel}</span>
-            ${isSettled
-              ? '<span class="settled-badge">✓ Settled</span>'
-              : '<span class="unsettled-badge">⏳ Pending</span>'}
-          </div>
-          <div class="month-grid">
-            <div class="month-stat">
-              <div class="month-stat-label">Melissa paid</div>
-              <div class="month-stat-value">${fmt(melissa)}</div>
-            </div>
-            <div class="month-stat">
-              <div class="month-stat-label">Mattias paid</div>
-              <div class="month-stat-value">${fmt(mattias)}</div>
-            </div>
-            <div class="month-stat">
-              <div class="month-stat-label">Total</div>
-              <div class="month-stat-value">${fmt(total)}</div>
-            </div>
-            <div class="month-stat">
-              <div class="month-stat-label">Each should pay</div>
-              <div class="month-stat-value">${fmt(each)}</div>
-            </div>
-          </div>
-          <div class="month-footer">
-            <span class="owed-text">${isSettled ? 'Settled' : (who || 'Even')}</span>
-            <span class="owed-amount">${isSettled ? '0 kr' : fmt(amount)}</span>
-          </div>
-          ${!isSettled ? `<button class="settle-btn" onclick="markAsPaid(${rowIndex + 2}, this)">✓ Mark as paid</button>` : ''}
-        </div>
-      `;
-    }).join('');
-
-    document.getElementById('summaryContent').innerHTML = html || '<div class="loading-msg">No data rows found.</div>';
-  }
-
-  async function markAsPaid(rowNumber, btn) {
-    const settings = JSON.parse(localStorage.getItem('expenseSettings') || '{}');
-    if (!settings.webAppUrl) return;
-
-    btn.disabled = true;
-    btn.textContent = 'Saving…';
-
-    try {
-      const url = `${settings.webAppUrl}?sheet=${encodeURIComponent('Vem betalade vad')}&action=settle&row=${rowNumber}&token=${encodeURIComponent(SECRET)}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.result === 'success') {
-        showToast('Marked as paid ✓', 'success');
-        setTimeout(() => loadSummary(), 800);
-      } else {
-        throw new Error('Unexpected response');
-      }
-    } catch (e) {
-      showToast('Error: ' + e.message, 'error');
-      btn.disabled = false;
-      btn.textContent = '✓ Mark as paid';
-    }
-  }
-
-  function renderRecent() {
-    const list = document.getElementById('recentList');
-    const entries = recentEntries[selectedBudget] || [];
-    if (entries.length === 0) {
-      list.innerHTML = '<p style="font-size:0.75rem;color:var(--ink-muted);padding:0 4px;">No entries yet.</p>';
-      return;
-    }
-    list.innerHTML = entries.map(e => `
-      <div class="entry">
-        <div class="entry-left">
-          <span class="entry-item">${e.item}</span>
-          <span class="entry-meta">${e.date} · ${e.category} · ${e.budget === "joint" ? (e.payer || "Joint") : (e.budget === "mattias" ? "Mattias" : "Melissa")}</span>
-        </div>
-        <span class="entry-amount">${e.amount.toLocaleString('sv-SE')} kr</span>
-      </div>
-    `).join('');
-  }
-
-  function showToast(msg, type = '') {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.className = 'toast ' + type + ' show';
-    setTimeout(() => t.className = 'toast ' + type, 2500);
-  }
-</script>
+<script type="module" src="js/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,47 @@
+/* ── Reset ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Design tokens ──────────────────────────────────────────────────────── */
+:root {
+  /* Colours */
+  --bg:            #F5F0E8;
+  --surface:       #FDFAF4;
+  --ink:           #1A1714;
+  --ink-muted:     #7A7068;
+  --border:        #DDD8CE;
+  --accent:        #C84B2F;
+  --accent-light:  #F2E8E4;
+  --blue:          #2A4A7A;
+  --blue-light:    #E4EAF4;
+  --success:       #2D6A4F;
+  --success-light: #D8F0E6;
+  --warn-bg:       #FEF3CD;
+  --warn-ink:      #7A5A00;
+
+  /* Elevation */
+  --shadow: 0 2px 12px rgba(26, 23, 20, 0.08);
+
+  /* Layout */
+  --nav-h:    64px;
+  --header-h: 52px;
+  --max-w:    480px;
+
+  /* Radii */
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   16px;
+  --r-pill: 999px;
+}
+
+/* ── Base typography ────────────────────────────────────────────────────── */
+body {
+  font-family: 'DM Mono', monospace;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
