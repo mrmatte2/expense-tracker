@@ -13,10 +13,10 @@
 
 const CLIENT_ID = '408791431371-2k4ribtvhm4jc40p1p6mlec4lglo8fp5.apps.googleusercontent.com';
 
-const ALLOWED_EMAILS = [
-  'mattias.backstrom1993@gmail.com',
-  'melissa.steffansson@gmail.com',
-];
+export const USERS = {
+  'mattias.backstrom1993@gmail.com': { name: 'Mattias', swish: '0739669684' },
+  'melissa.steffansson@gmail.com':   { name: 'Melissa',  swish: '0760247910' },
+};
 
 const SESSION_KEY = 'ug_user';
 
@@ -72,15 +72,17 @@ export function signOut() {
 function handleCredential(response, { onSuccess, onError }) {
   const payload = decodeJwt(response.credential);
 
-  if (!ALLOWED_EMAILS.includes(payload.email)) {
+  if (!USERS[payload.email]) {
     const errEl = document.getElementById('auth-error');
     if (errEl) errEl.textContent = 'This Google account is not authorised.';
     if (onError) onError('Unauthorised account');
     return;
   }
 
+  const profile = USERS[payload.email];
   const user = {
-    name:    payload.given_name || payload.name,
+    name:    profile.name,
+    swish:   profile.swish,
     email:   payload.email,
     idToken: response.credential,
   };

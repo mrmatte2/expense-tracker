@@ -77,6 +77,26 @@
 .btn-settle:hover    { background: var(--success-light); }
 .btn-settle:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.btn-swish {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  background: #E8F5FF;
+  border: 1px solid #5BA3D9;
+  border-radius: var(--r-md);
+  padding: 10px;
+  color: #1A6FAD;
+  cursor: pointer;
+  margin-top: 12px;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+.btn-swish:hover { background: #CCE8FA; }
+
 .btn-signout {
   font-size: 1rem;
   background: none;

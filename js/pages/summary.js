@@ -1,10 +1,13 @@
 import { getSummarySheet, settleRow } from '../api.js';
+import { getState } from '../state.js';
 import { fmt, parseMonthLabel, showToast, showConfirm } from '../utils.js';
+import { USERS } from '../auth.js';
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 export function initSummaryPage() {
   document.getElementById('summary-refresh-btn').addEventListener('click', loadSummary);
+  document.addEventListener('visibilitychange', onReturnFromSwish);
 }
 
 /** Called by app.js when navigating to this page */
@@ -52,14 +55,21 @@ function renderSummary(rows) {
       || String(r[iSettled]).toLowerCase() === 'ja'
       || r[iSettled] === 'TRUE';
 
-    const rowNumber = idx + 2; // 1-based, row 1 is headers
-    const whoText   = isSettled ? 'Settled' : (String(r[iWho] || '') || 'Even');
-    const owedText  = isSettled ? '0 kr' : fmt(r[iAmount]);
+    const rowNumber  = idx + 2; // 1-based, row 1 is headers
+    const whoRaw     = String(r[iWho] || '').trim();
+    const whoText    = isSettled ? 'Settled' : (whoRaw || 'Even');
+    const owedText   = isSettled ? '0 kr' : fmt(r[iAmount]);
+    const monthLabel = parseMonthLabel(r[iMonth]);
+    const owedAmount = parseFloat(r[iAmount]) || 0;
+
+    const swishBtn = (!isSettled && owedAmount > 0 && whoRaw)
+      ? buildSwishBtn(whoRaw, owedAmount, monthLabel, rowNumber)
+      : '';
 
     return `
       <div class="month-card">
         <div class="month-card-header">
-          <span class="month-label">${parseMonthLabel(r[iMonth])}</span>
+          <span class="month-label">${monthLabel}</span>
           <span class="badge ${isSettled ? 'badge-settled' : 'badge-pending'}">
             ${isSettled ? '✓ Settled' : '⏳ Pending'}
           </span>
@@ -86,6 +96,7 @@ function renderSummary(rows) {
           <span>${whoText}</span>
           <span class="owed-amount">${owedText}</span>
         </div>
+        ${swishBtn}
         ${!isSettled ? `<button class="btn-settle" data-row="${rowNumber}">✓ Mark as paid</button>` : ''}
       </div>
     `;
@@ -94,8 +105,72 @@ function renderSummary(rows) {
   const container = document.getElementById('summary-content');
   container.innerHTML = html || '<p class="loading-msg">No data rows found.</p>';
 
-  // Attach settle handlers (event delegation on container)
+  // Attach settle + swish handlers via event delegation
   container.addEventListener('click', handleSettleClick);
+  container.addEventListener('click', handleSwishClick);
+}
+
+// ── Swish ─────────────────────────────────────────────────────────────────────
+
+// Tracks which row to prompt settling after returning from the Swish app
+let pendingSettleRow = null;
+
+/** Build the Swish button HTML, or '' if we can't determine the payee. */
+function buildSwishBtn(whoRaw, amount, monthLabel, rowNumber) {
+  const payeeSwish = resolvePayeeSwish(whoRaw);
+  if (!payeeSwish) return '';
+
+  const url = buildSwishUrl(payeeSwish, amount, monthLabel);
+  return `<a href="${url}" class="btn-swish" data-swish-row="${rowNumber}" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12h8M12 8l4 4-4 4"/></svg>
+    Pay with Swish
+  </a>`;
+}
+
+/**
+ * The "who" column from the sheet says who owes (the debtor).
+ * If Mattias owes → Mattias pays → Melissa is payee → return Melissa's Swish.
+ * If Melissa owes → Melissa pays → Mattias is payee → return Mattias's Swish.
+ */
+function resolvePayeeSwish(whoRaw) {
+  const lower = whoRaw.toLowerCase();
+  if (lower.includes('mattias')) return USERS['melissa.steffansson@gmail.com'].swish;
+  if (lower.includes('melissa')) return USERS['mattias.backstrom1993@gmail.com'].swish;
+  return null;
+}
+
+function buildSwishUrl(payeePhone, amount, monthLabel) {
+  const data = JSON.stringify({
+    version: 1,
+    payee:   { value: payeePhone,            editable: false },
+    amount:  { value: Math.round(amount),    editable: false },
+    message: { value: `Utgifter ${monthLabel}`, editable: true },
+  });
+  return `https://app.swish.nu/1/payment/new?data=${encodeURIComponent(data)}`;
+}
+
+function handleSwishClick(e) {
+  const link = e.target.closest('.btn-swish');
+  if (!link) return;
+  pendingSettleRow = parseInt(link.dataset.swishRow);
+}
+
+async function onReturnFromSwish() {
+  if (document.hidden || pendingSettleRow === null) return;
+
+  const row = pendingSettleRow;
+  pendingSettleRow = null;
+
+  const confirmed = await showConfirm('Payment sent? Mark this month as settled?');
+  if (!confirmed) return;
+
+  try {
+    await settleRow(row);
+    showToast('Marked as paid ✓', 'success');
+    setTimeout(loadSummary, 600);
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  }
 }
 
 // ── Settle ────────────────────────────────────────────────────────────────────
