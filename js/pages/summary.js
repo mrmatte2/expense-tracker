@@ -8,6 +8,11 @@ import { USERS } from '../auth.js';
 export function initSummaryPage() {
   document.getElementById('summary-refresh-btn').addEventListener('click', loadSummary);
   document.addEventListener('visibilitychange', onReturnFromSwish);
+
+  // Wire click delegation once here, not inside renderSummary
+  const container = document.getElementById('summary-content');
+  container.addEventListener('click', handleSettleClick);
+  container.addEventListener('click', handleSwishClick);
 }
 
 /** Called by app.js when navigating to this page */
@@ -62,7 +67,10 @@ function renderSummary(rows) {
     const monthLabel = parseMonthLabel(r[iMonth]);
     const owedAmount = parseFloat(r[iAmount]) || 0;
 
-    const swishBtn = (!isSettled && owedAmount > 0 && whoRaw)
+    // Only show Swish button to the person who owes (the debtor pays)
+    const { user } = getState();
+    const currentUserOwes = user && whoRaw.toLowerCase().includes(user.name.toLowerCase());
+    const swishBtn = (!isSettled && owedAmount > 0 && currentUserOwes)
       ? buildSwishBtn(whoRaw, owedAmount, monthLabel, rowNumber)
       : '';
 
@@ -104,10 +112,6 @@ function renderSummary(rows) {
 
   const container = document.getElementById('summary-content');
   container.innerHTML = html || '<p class="loading-msg">No data rows found.</p>';
-
-  // Attach settle + swish handlers via event delegation
-  container.addEventListener('click', handleSettleClick);
-  container.addEventListener('click', handleSwishClick);
 }
 
 // ── Swish ─────────────────────────────────────────────────────────────────────
