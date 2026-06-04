@@ -125,7 +125,7 @@ function buildSwishBtn(whoRaw, amount, monthLabel, rowNumber) {
   if (!payeeSwish) return '';
 
   const url = buildSwishUrl(payeeSwish, amount, monthLabel);
-  return `<a href="${url}" class="btn-swish" data-swish-row="${rowNumber}" target="_blank" rel="noopener">
+  return `<a href="${url}" class="btn-swish" data-swish-row="${rowNumber}">
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12h8M12 8l4 4-4 4"/></svg>
     Pay with Swish
   </a>`;
@@ -144,13 +144,13 @@ function resolvePayeeSwish(whoRaw) {
 }
 
 function buildSwishUrl(payeePhone, amount, monthLabel) {
-  const data = JSON.stringify({
+  const data = encodeURIComponent(JSON.stringify({
     version: 1,
     payee:   { value: payeePhone,            editable: false },
     amount:  { value: Math.round(amount),    editable: false },
-    message: { value: `Utgifter ${monthLabel}`, editable: true },
-  });
-  return `https://app.swish.nu/1/payment/new?data=${encodeURIComponent(data)}`;
+    message: { value: 'Utgifter ' + monthLabel, editable: true },
+  }));
+  return 'swish://payment?data=' + data;
 }
 
 function handleSwishClick(e) {
