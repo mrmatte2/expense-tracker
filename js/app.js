@@ -8,6 +8,7 @@ import { setState } from './state.js';
 import { initAddPage } from './pages/add.js';
 import { initHistoryPage, onHistoryEnter } from './pages/history.js';
 import { initSummaryPage, onSummaryEnter } from './pages/summary.js';
+import { initImportPage, onImportEnter } from './pages/import.js';
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ function showApp(user) {
   initAddPage();
   initHistoryPage();
   initSummaryPage();
+  initImportPage();
 
   // Wire bottom nav
   document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -64,4 +66,5 @@ function navigateTo(page) {
   // Page-level enter hooks
   if (page === 'history') onHistoryEnter();
   if (page === 'summary') onSummaryEnter();
+  if (page === 'import')  onImportEnter();
 }

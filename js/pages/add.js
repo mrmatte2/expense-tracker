@@ -1,6 +1,7 @@
 import { getState, setState } from '../state.js';
 import { addExpense } from '../api.js';
 import { showToast } from '../utils.js';
+import { CATEGORIES } from '../categories.js';
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -8,6 +9,15 @@ const today = () => new Date().toISOString().split('T')[0];
 
 export function initAddPage() {
   document.getElementById('purchase-date').value = today();
+
+  // Populate category select from centralised list
+  const catSelect = document.getElementById('category');
+  CATEGORIES.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    catSelect.appendChild(opt);
+  });
 
   // Setup panel
   document.getElementById('save-setup-btn').addEventListener('click', saveSetup);

@@ -1,0 +1,15 @@
+export const CATEGORIES = [
+  'Bills',
+  'Date',
+  'Entertainment',
+  'Food & Drink',
+  'Gifts',
+  'Groceries',
+  'Health & Wellbeing',
+  'Investment',
+  'Other',
+  'Shopping',
+  'Subscriptions',
+  'Transport',
+  'Travel',
+];

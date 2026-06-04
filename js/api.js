@@ -88,3 +88,35 @@ export async function getSummarySheet() {
 export async function settleRow(rowNumber) {
   return apiFetch({ sheet: 'Vem betalade vad', action: 'settle', row: rowNumber });
 }
+
+/**
+ * Send items to Apps Script → Claude for categorisation.
+ * Returns [{category, confidence}] in the same order as items.
+ */
+export async function categorizeExpenses(items) {
+  const data = await apiPost({ action: 'categorize' }, { items });
+  return data.results;
+}
+
+/**
+ * Bulk-write pre-built rows to the Joint Expenses sheet.
+ * Each row: [timestamp, purchaseDate, item, amount, category, 'Ja', paidBy]
+ */
+export async function batchImportExpenses(rows) {
+  return apiPost({ action: 'batchImport' }, { rows });
+}
+
+/**
+ * Record a user-corrected category for future Claude few-shot prompts.
+ */
+export async function saveCorrection(merchant, original, corrected) {
+  return apiPost({ action: 'saveCorrection' }, { merchant, original, corrected });
+}
+
+/**
+ * Fetch recent rows from Joint Expenses for duplicate detection.
+ * Returns { rows: [[...], ...] }
+ */
+export async function getRecentExpenses() {
+  return apiFetch({ action: 'getExpenses', sheet: SHEET_MAP.joint });
+}
