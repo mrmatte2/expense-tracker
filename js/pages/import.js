@@ -6,13 +6,14 @@ import { showToast } from '../utils.js';
 
 // ── Module state ──────────────────────────────────────────────────────────────
 
-let _rawRows    = [];   // string[][] from parseCSV (excludes header row)
-let _headers    = [];   // string[]
-let _fingerprint = '';
-let _mapping    = null; // { name, dateCol, amountCol, itemCol }
-let _categorized = [];  // frozen AI output: [{date, item, amount, category, confidence, isDuplicate}]
+let _selectedFile  = null;  // File object from picker / drop
+let _rawRows       = [];    // string[][] from parseCSV (excludes header row)
+let _headers       = [];    // string[]
+let _fingerprint   = '';
+let _mapping       = null;  // { name, dateCol, amountCol, itemCol }
+let _categorized   = [];    // frozen AI output array
 
-// ── Init / enter ──────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 
 export function initImportPage() {
   // Drop zone
@@ -23,19 +24,31 @@ export function initImportPage() {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
     const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
+    if (file) selectFile(file);
   });
-  dropZone.addEventListener('click', () => document.getElementById('csv-file').click());
-
-  document.getElementById('csv-browse-btn').addEventListener('click', e => {
-    e.stopPropagation(); // prevent double-fire from drop zone click
+  dropZone.addEventListener('click', e => {
+    if (e.target.id === 'csv-browse-btn') return; // handled below
     document.getElementById('csv-file').click();
   });
-  document.getElementById('csv-file').addEventListener('change', e => {
-    if (e.target.files[0]) handleFile(e.target.files[0]);
+
+  document.getElementById('csv-browse-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    document.getElementById('csv-file').click();
   });
 
-  // Mapper
+  document.getElementById('csv-file').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (file) selectFile(file);
+    e.target.value = ''; // reset so same file can be re-selected
+  });
+
+  // Clear selected file
+  document.getElementById('csv-clear-btn').addEventListener('click', clearFile);
+
+  // Continue → triggers processing
+  document.getElementById('csv-process-btn').addEventListener('click', processSelectedFile);
+
+  // Mapper confirm
   document.getElementById('mapper-confirm-btn').addEventListener('click', handleMapperConfirm);
 
   // Payer toggle
@@ -51,23 +64,41 @@ export function initImportPage() {
 }
 
 export function onImportEnter() {
-  // Preserve review state if mid-flow; only reset when no data loaded
+  // Only reset to upload step if no data is loaded
   if (_categorized.length === 0 && _rawRows.length === 0) {
     showStep('upload');
   }
 }
 
-// ── File handling ─────────────────────────────────────────────────────────────
+// ── File selection ────────────────────────────────────────────────────────────
 
-async function handleFile(file) {
+function selectFile(file) {
   if (!file.name.toLowerCase().endsWith('.csv')) {
-    showToast('Please upload a CSV file', 'error');
+    showToast('Please select a CSV file', 'error');
     return;
   }
+  _selectedFile = file;
+  document.getElementById('selected-filename').textContent = file.name;
+  document.getElementById('import-format-badge').innerHTML = '';
+  document.getElementById('file-pick-area').classList.add('hidden');
+  document.getElementById('file-selected-area').classList.remove('hidden');
+}
+
+function clearFile() {
+  _selectedFile = null;
+  document.getElementById('file-pick-area').classList.remove('hidden');
+  document.getElementById('file-selected-area').classList.add('hidden');
+  document.getElementById('import-format-badge').innerHTML = '';
+}
+
+// ── Processing ────────────────────────────────────────────────────────────────
+
+async function processSelectedFile() {
+  if (!_selectedFile) return;
 
   let text;
   try {
-    text = await file.text();
+    text = await _selectedFile.text();
   } catch {
     showToast('Could not read file', 'error');
     return;
@@ -80,23 +111,17 @@ async function handleFile(file) {
     return;
   }
 
-  _headers = headers;
-  _rawRows = rows;
+  _headers     = headers;
+  _rawRows     = rows;
   _fingerprint = fingerprintHeaders(headers);
 
   const known = detectFormat(_fingerprint);
   if (known) {
-    const badge = document.getElementById('import-format-badge');
-    badge.innerHTML = '';
-    const pill = document.createElement('span');
-    pill.className = 'format-badge';
-    pill.textContent = '✓ Format recognized: ' + known.name;
-    badge.appendChild(pill);
-    badge.classList.remove('hidden');
     _mapping = known;
+    const badge = document.getElementById('import-format-badge');
+    badge.innerHTML = '<span class="format-badge">✓ ' + known.name + '</span>';
     await startCategorization();
   } else {
-    document.getElementById('import-format-badge').classList.add('hidden');
     buildMapperUI();
     showStep('mapper');
   }
@@ -105,9 +130,10 @@ async function handleFile(file) {
 // ── Column mapper ─────────────────────────────────────────────────────────────
 
 function buildMapperUI() {
-  // Preview table (first 4 rows incl. headers)
+  // Preview table (headers + up to 3 data rows)
   const previewRows = [_headers, ..._rawRows.slice(0, 3)];
   const wrap = document.getElementById('mapper-preview-wrap');
+  wrap.innerHTML = '';
   const table = document.createElement('table');
   previewRows.forEach((row, ri) => {
     const tr = document.createElement('tr');
@@ -118,21 +144,18 @@ function buildMapperUI() {
     });
     table.appendChild(tr);
   });
-  wrap.innerHTML = '';
   wrap.appendChild(table);
 
   // Populate column selects
-  const optionsHTML = _headers.map((h, i) => {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = `${i}: ${h}`;
-    return opt;
-  });
-
   ['mapper-date', 'mapper-amount', 'mapper-item'].forEach(id => {
     const sel = document.getElementById(id);
     sel.innerHTML = '';
-    optionsHTML.forEach(o => sel.appendChild(o.cloneNode(true)));
+    _headers.forEach((h, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = i + ': ' + h;
+      sel.appendChild(opt);
+    });
   });
 
   // Auto-detect best columns
@@ -167,18 +190,15 @@ async function startCategorization() {
   const parsed = applyMapping(_rawRows, _mapping);
 
   if (parsed.length === 0) {
-    showToast('No valid expenses found in CSV', 'error');
-    showStep('upload');
+    showToast('No valid expenses found — check column mapping', 'error');
+    showStep('mapper');
     return;
   }
 
-  const capped = parsed.length > 200;
+  const capped   = parsed.length > 200;
   const toReview = capped ? parsed.slice(0, 200) : parsed;
-  const toImport = parsed; // all rows go to import, only first 200 shown in review
 
-  if (capped) {
-    showToast(`File has ${parsed.length} rows — showing first 200 for review. All will be imported.`, '');
-  }
+  if (capped) showToast(`File has ${parsed.length} rows — showing first 200 for review`, '');
 
   showStep('categorizing');
 
@@ -189,33 +209,24 @@ async function startCategorization() {
     categories = await categorizeExpenses(toReview.map(r => ({ item: r.item, amount: r.amount })));
   } catch {
     categories = toReview.map(() => ({ category: 'Other', confidence: 'low' }));
-    showToast('Categorization failed — defaulted to Other', 'error');
+    showToast('Categorization failed — please assign manually', 'error');
   }
 
-  // Check for duplicates (best-effort — don't block on failure)
   let duplicateKeys = new Set();
-  try {
-    duplicateKeys = await checkDuplicates(toReview);
-  } catch {
-    // ignore — duplicate detection is non-critical
-  }
+  try { duplicateKeys = await checkDuplicates(toReview); } catch { /* non-critical */ }
 
-  // Freeze AI output as module state
   _categorized = toReview.map((row, i) => ({
     ...row,
-    category:     categories[i]?.category    || 'Other',
-    confidence:   categories[i]?.confidence  || 'low',
-    isDuplicate:  duplicateKeys.has(`${row.date}|${row.item}|${row.amount}`),
-    _allRows:     i === 0 ? toImport : undefined, // carry full list on first item
+    category:    categories[i]?.category   || 'Other',
+    confidence:  categories[i]?.confidence || 'low',
+    isDuplicate: duplicateKeys.has(row.date + '|' + row.item + '|' + row.amount),
   }));
-
-  // Store all rows for import (may be > 200)
-  _categorized._allParsed = toImport;
+  _categorized._allParsed = parsed;
 
   renderReviewTable();
   showStep('review');
 
-  // Set default payer
+  // Default payer
   const payer = (_mapping.isAmexHint || _mapping.name?.toLowerCase().includes('amex'))
     ? 'Mattias'
     : (getState().user?.name || 'Mattias');
@@ -228,20 +239,14 @@ async function startCategorization() {
 
 async function checkDuplicates(parsed) {
   const data = await getRecentExpenses();
-  const existing = new Set();
-  if (Array.isArray(data.rows)) {
-    for (const row of data.rows) {
-      // row: [timestamp, purchaseDate, item, amount, category, betalad, paidBy]
-      const key = `${row[1]}|${row[2]}|${row[3]}`;
-      existing.add(key);
-    }
-  }
+  const existing = new Set(
+    (data.rows || []).map(r => r[1] + '|' + r[2] + '|' + r[3])
+  );
   const keys = new Set();
-  for (const r of parsed) {
-    if (existing.has(`${r.date}|${r.item}|${r.amount}`)) {
-      keys.add(`${r.date}|${r.item}|${r.amount}`);
-    }
-  }
+  parsed.forEach(r => {
+    const k = r.date + '|' + r.item + '|' + r.amount;
+    if (existing.has(k)) keys.add(k);
+  });
   return keys;
 }
 
@@ -251,52 +256,43 @@ function renderReviewTable() {
   const list = document.getElementById('import-review-list');
   list.innerHTML = '';
 
-  const count = _categorized.length;
-  document.getElementById('import-count-label').textContent = `${count} expense${count !== 1 ? 's' : ''}`;
-
-  const totalCount = _categorized._allParsed?.length ?? count;
-  const submitBtn = document.getElementById('import-submit-btn');
-  submitBtn.textContent = `Import ${totalCount} expense${totalCount !== 1 ? 's' : ''}`;
-  submitBtn.disabled = false;
+  const total = _categorized._allParsed?.length ?? _categorized.length;
+  document.getElementById('import-count-label').textContent =
+    _categorized.length + ' shown for review';
+  document.getElementById('import-submit-btn').textContent =
+    'Import ' + total + ' expense' + (total !== 1 ? 's' : '');
+  document.getElementById('import-submit-btn').disabled = false;
 
   const catOptions = CATEGORIES.map(c => {
     const o = document.createElement('option');
-    o.value = c;
-    o.textContent = c;
+    o.value = c; o.textContent = c;
     return o;
   });
 
-  _categorized.forEach((item, idx) => {
-    const card = buildReviewCard(item, idx, catOptions);
-    list.appendChild(card);
-  });
+  _categorized.forEach((item, idx) => list.appendChild(buildReviewCard(item, idx, catOptions)));
 
-  // Single event delegation on the list
   list.addEventListener('change', handleReviewChange);
   list.addEventListener('click',  handleReviewClick);
 }
 
 function buildReviewCard(item, idx, catOptions) {
-  const flagged = item.confidence === 'low' || item.isDuplicate;
+  const isFlagged = item.isDuplicate ||
+    item.category === 'Shopping' || item.category === 'Gifts' || item.confidence === 'low';
+
   const card = document.createElement('div');
   card.className = 'review-item' +
-    (item.isDuplicate  ? ' review-item-duplicate' :
-     item.confidence !== 'high' && item.confidence !== 'medium' ? ' review-item-flagged' :
-     item.category === 'Shopping' || item.category === 'Gifts' ? ' review-item-flagged' : '');
+    (item.isDuplicate ? ' review-item-duplicate' : isFlagged ? ' review-item-flagged' : '');
   card.dataset.idx = idx;
 
-  // Top row: date + amount
+  // Top: date + amount
   const top = document.createElement('div');
   top.className = 'review-item-top';
-
   const dateEl = document.createElement('span');
   dateEl.className = 'review-item-date';
   dateEl.textContent = item.date;
-
   const amountEl = document.createElement('span');
   amountEl.className = 'review-item-amount';
   amountEl.textContent = item.amount.toLocaleString('sv-SE') + ' kr';
-
   top.appendChild(dateEl);
   top.appendChild(amountEl);
 
@@ -308,7 +304,7 @@ function buildReviewCard(item, idx, catOptions) {
   nameInput.dataset.idx = idx;
   nameInput.dataset.role = 'name';
 
-  // Bottom row: category select + badge + optional date-night + remove
+  // Bottom: category + badge + extras
   const bottom = document.createElement('div');
   bottom.className = 'review-item-bottom';
 
@@ -322,22 +318,15 @@ function buildReviewCard(item, idx, catOptions) {
   catOptions.forEach(o => catSelect.appendChild(o.cloneNode(true)));
   catSelect.value = item.category;
 
-  const confidenceClass = `badge badge-confidence-${item.confidence}`;
   const badge = document.createElement('span');
-  badge.className = confidenceClass;
+  badge.className = 'badge badge-confidence-' + item.confidence;
   badge.textContent = item.confidence;
 
   catWrap.appendChild(catSelect);
   catWrap.appendChild(badge);
-
   bottom.appendChild(catWrap);
 
-  // Date night toggle for Food & Drink
-  if (item.category === 'Food & Drink') {
-    bottom.appendChild(makeDateNightLabel(idx));
-  }
-
-  // Duplicate warning
+  if (item.category === 'Food & Drink') bottom.appendChild(makeDateNightLabel(idx));
   if (item.isDuplicate) {
     const warn = document.createElement('span');
     warn.className = 'duplicate-warn';
@@ -358,7 +347,6 @@ function buildReviewCard(item, idx, catOptions) {
   card.appendChild(nameInput);
   card.appendChild(bottom);
   card.appendChild(removeBtn);
-
   return card;
 }
 
@@ -375,30 +363,27 @@ function makeDateNightLabel(idx) {
 }
 
 function handleReviewChange(e) {
-  const idx = parseInt(e.target.dataset.idx, 10);
+  const idx  = parseInt(e.target.dataset.idx, 10);
   if (isNaN(idx)) return;
   const card = e.target.closest('.review-item');
 
   if (e.target.dataset.role === 'category') {
     const newCat = e.target.value;
-    // Update flagging classes
     card.classList.toggle('review-item-flagged',
       newCat === 'Shopping' || newCat === 'Gifts' ||
       (_categorized[idx]?.confidence === 'low' && newCat !== 'Date'));
-
-    // Show/hide date night toggle
-    const bottom = card.querySelector('.review-item-bottom');
+    const bottom   = card.querySelector('.review-item-bottom');
     const existing = bottom.querySelector('.date-night-label');
     if (newCat === 'Food & Drink' && !existing) {
-      bottom.insertBefore(makeDateNightLabel(idx), bottom.querySelector('.review-remove-btn'));
+      bottom.insertBefore(makeDateNightLabel(idx), card.querySelector('.review-remove-btn'));
     } else if (newCat !== 'Food & Drink' && existing) {
       existing.remove();
     }
   }
 
   if (e.target.dataset.role === 'datenight') {
-    const catSelect = card.querySelector('.review-cat-select');
-    catSelect.value = e.target.checked ? 'Date' : 'Food & Drink';
+    const sel = card.querySelector('.review-cat-select');
+    sel.value = e.target.checked ? 'Date' : 'Food & Drink';
     card.classList.remove('review-item-flagged');
   }
 }
@@ -409,20 +394,9 @@ function handleReviewClick(e) {
   const card = btn.closest('.review-item');
   card.style.display = 'none';
   card.dataset.removed = 'true';
-  updateImportCount();
 }
 
-function updateImportCount() {
-  const visible = document.querySelectorAll('#import-review-list .review-item:not([data-removed="true"])').length;
-  const totalImport = (_categorized._allParsed?.length ?? _categorized.length) -
-    document.querySelectorAll('#import-review-list .review-item[data-removed="true"]').length;
-  document.getElementById('import-count-label').textContent =
-    `${visible} expense${visible !== 1 ? 's' : ''}`;
-  const submitBtn = document.getElementById('import-submit-btn');
-  submitBtn.textContent = `Import ${totalImport} expense${totalImport !== 1 ? 's' : ''}`;
-}
-
-// ── Submit ────────────────────────────────────────────────────────────────────
+// ── Import submit ─────────────────────────────────────────────────────────────
 
 async function handleImport() {
   const { user, webAppUrl } = getState();
@@ -434,67 +408,54 @@ async function handleImport() {
 
   const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-  // Collect reviewed rows (visible in review UI)
-  const reviewedRows = collectReviewState();
-
-  // Rows not shown in review UI (only when file had > 200 rows)
-  const allParsed = _categorized._allParsed || [];
-  const hiddenRows = allParsed.slice(_categorized.length).map(r => ({
-    date: r.date, item: r.item, amount: r.amount,
-    category: 'Other', originalCategory: 'Other',
+  const reviewedRows  = collectReviewState();
+  const allParsed     = _categorized._allParsed || [];
+  const hiddenRows    = allParsed.slice(_categorized.length).map(r => ({
+    date: r.date, item: r.item, amount: r.amount, category: 'Other', originalCategory: 'Other',
   }));
-
   const finalRows = [...reviewedRows, ...hiddenRows];
 
-  if (finalRows.length === 0) {
-    showToast('No expenses to import', 'error');
-    return;
-  }
+  if (finalRows.length === 0) { showToast('No expenses to import', 'error'); return; }
 
   const btn = document.getElementById('import-submit-btn');
   btn.disabled = true;
   btn.textContent = 'Importing…';
 
   const sheetRows = finalRows.map(r => [
-    timestamp,
-    r.date,
-    r.item,
-    r.amount,
-    r.category,
-    'Ja',
-    paidBy,
+    timestamp, r.date, r.item, r.amount, r.category, 'Ja', paidBy,
   ]);
 
   try {
     await batchImportExpenses(sheetRows);
 
-    // Fire-and-forget corrections (compare against frozen _categorized)
+    // Fire-and-forget corrections
     reviewedRows.forEach((r, i) => {
       if (r.category !== (_categorized[i]?.category)) {
         saveCorrection(r.item, _categorized[i]?.category || 'Other', r.category).catch(() => {});
       }
     });
 
-    showToast(`${sheetRows.length} expenses imported ✓`, 'success');
+    showToast(sheetRows.length + ' expenses imported ✓', 'success');
     resetImport();
 
   } catch (err) {
     showToast('Import failed: ' + err.message, 'error');
     btn.disabled = false;
-    btn.textContent = `Import ${finalRows.length} expense${finalRows.length !== 1 ? 's' : ''}`;
+    btn.textContent = 'Import ' + finalRows.length + ' expense' + (finalRows.length !== 1 ? 's' : '');
   }
 }
 
 function collectReviewState() {
-  const cards = document.querySelectorAll('#import-review-list .review-item:not([data-removed="true"])');
-  return Array.from(cards).map(card => {
+  return Array.from(
+    document.querySelectorAll('#import-review-list .review-item:not([data-removed="true"])')
+  ).map(card => {
     const idx = parseInt(card.dataset.idx, 10);
     return {
-      date:              card.querySelector('.review-item-date').textContent,
-      item:              card.querySelector('.review-item-name').value.trim(),
-      amount:            _categorized[idx]?.amount ?? 0,
-      category:          card.querySelector('.review-cat-select').value,
-      originalCategory:  _categorized[idx]?.category || 'Other',
+      date:             card.querySelector('.review-item-date').textContent,
+      item:             card.querySelector('.review-item-name').value.trim(),
+      amount:           _categorized[idx]?.amount ?? 0,
+      category:         card.querySelector('.review-cat-select').value,
+      originalCategory: _categorized[idx]?.category || 'Other',
     };
   });
 }
@@ -503,21 +464,22 @@ function collectReviewState() {
 
 function showStep(name) {
   ['upload', 'mapper', 'categorizing', 'review'].forEach(s => {
-    const el = document.getElementById(`import-step-${s}`);
+    const el = document.getElementById('import-step-' + s);
     if (el) el.classList.toggle('hidden', s !== name);
   });
 }
 
 function resetImport() {
-  _rawRows     = [];
-  _headers     = [];
-  _fingerprint = '';
-  _mapping     = null;
-  _categorized = [];
+  _selectedFile = null;
+  _rawRows      = [];
+  _headers      = [];
+  _fingerprint  = '';
+  _mapping      = null;
+  _categorized  = [];
 
-  const fileInput = document.getElementById('csv-file');
-  if (fileInput) fileInput.value = '';
-  document.getElementById('import-format-badge').classList.add('hidden');
+  document.getElementById('file-pick-area').classList.remove('hidden');
+  document.getElementById('file-selected-area').classList.add('hidden');
+  document.getElementById('import-format-badge').innerHTML = '';
   document.getElementById('import-review-list').innerHTML = '';
   document.getElementById('import-submit-btn').disabled = true;
 

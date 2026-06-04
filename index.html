@@ -151,17 +151,34 @@
       <div id="import-step-upload">
         <div class="card">
           <h2 class="section-label">Import from CSV</h2>
-          <div id="drop-zone" class="drop-zone">
-            <input type="file" id="csv-file" accept=".csv">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-muted)">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-            <p>Drop a CSV file here or</p>
-            <button class="btn-secondary" id="csv-browse-btn" type="button">Browse files</button>
+
+          <!-- No file selected -->
+          <div id="file-pick-area">
+            <div id="drop-zone" class="drop-zone">
+              <input type="file" id="csv-file" accept=".csv" style="display:none">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-muted)">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <p>Drop a CSV file here or</p>
+              <button class="btn-secondary" id="csv-browse-btn" type="button">Browse files</button>
+            </div>
           </div>
-          <div id="import-format-badge" class="hidden" style="margin-top:10px;"></div>
+
+          <!-- File selected -->
+          <div id="file-selected-area" class="hidden">
+            <div class="selected-file-row">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--ink-muted)">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              <span id="selected-filename" class="selected-filename"></span>
+              <button id="csv-clear-btn" class="btn-ghost" type="button">✕</button>
+            </div>
+            <div id="import-format-badge" style="margin-bottom:10px;"></div>
+            <button id="csv-process-btn" class="btn-primary">Continue →</button>
+          </div>
         </div>
       </div>
 
