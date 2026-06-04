@@ -4,6 +4,14 @@ import { parseCSV, fingerprintHeaders, detectFormat, saveFormat, applyMapping, a
 import { CATEGORIES } from '../categories.js';
 import { showToast } from '../utils.js';
 
+const JOINT_CATEGORIES = ['Groceries'];
+
+const SHEET_NAMES = {
+  joint:   'Joint Expenses',
+  mattias: 'Mattias Expenses',
+  melissa: 'Melissas Expenses',
+};
+
 // ── Module state ──────────────────────────────────────────────────────────────
 
 let _selectedFile  = null;  // File object from picker / drop
@@ -334,6 +342,22 @@ function buildReviewCard(item, idx, catOptions) {
     bottom.appendChild(warn);
   }
 
+  // Budget toggle (Joint / Personal)
+  const defaultBudget = JOINT_CATEGORIES.includes(item.category) ? 'joint' : 'personal';
+  const budgetRow = document.createElement('div');
+  budgetRow.className = 'review-budget-row';
+
+  ['joint', 'personal'].forEach(val => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'budget-btn' + (val === defaultBudget ? ' active' : '');
+    btn.dataset.idx = idx;
+    btn.dataset.role = 'budget';
+    btn.dataset.value = val;
+    btn.textContent = val === 'joint' ? 'Joint' : 'Personal';
+    budgetRow.appendChild(btn);
+  });
+
   // Remove button
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
@@ -346,6 +370,7 @@ function buildReviewCard(item, idx, catOptions) {
   card.appendChild(top);
   card.appendChild(nameInput);
   card.appendChild(bottom);
+  card.appendChild(budgetRow);
   card.appendChild(removeBtn);
   return card;
 }
@@ -389,11 +414,21 @@ function handleReviewChange(e) {
 }
 
 function handleReviewClick(e) {
-  const btn = e.target.closest('[data-role="remove"]');
+  const btn = e.target.closest('[data-role]');
   if (!btn) return;
-  const card = btn.closest('.review-item');
-  card.style.display = 'none';
-  card.dataset.removed = 'true';
+
+  if (btn.dataset.role === 'remove') {
+    const card = btn.closest('.review-item');
+    card.style.display = 'none';
+    card.dataset.removed = 'true';
+    return;
+  }
+
+  if (btn.dataset.role === 'budget') {
+    const card = btn.closest('.review-item');
+    card.querySelectorAll('[data-role="budget"]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
 }
 
 // ── Import submit ─────────────────────────────────────────────────────────────
@@ -421,12 +456,21 @@ async function handleImport() {
   btn.disabled = true;
   btn.textContent = 'Importing…';
 
-  const sheetRows = finalRows.map(r => [
-    timestamp, r.date, r.item, r.amount, r.category, 'Ja', paidBy,
-  ]);
+  // Split rows by destination sheet
+  const personalSheet = SHEET_NAMES[user.name.toLowerCase()] || SHEET_NAMES.mattias;
+
+  const bySheet = {};
+  finalRows.forEach(r => {
+    const sheet = r.budget === 'joint' ? SHEET_NAMES.joint : personalSheet;
+    const rowPaidBy = r.budget === 'joint' ? paidBy : user.name;
+    if (!bySheet[sheet]) bySheet[sheet] = [];
+    bySheet[sheet].push([timestamp, r.date, r.item, r.amount, r.category, 'Ja', rowPaidBy]);
+  });
 
   try {
-    await batchImportExpenses(sheetRows);
+    await Promise.all(
+      Object.entries(bySheet).map(([sheet, rows]) => batchImportExpenses(rows, sheet))
+    );
 
     // Fire-and-forget corrections
     reviewedRows.forEach((r, i) => {
@@ -435,7 +479,7 @@ async function handleImport() {
       }
     });
 
-    showToast(sheetRows.length + ' expenses imported ✓', 'success');
+    showToast(finalRows.length + ' expenses imported ✓', 'success');
     resetImport();
 
   } catch (err) {
@@ -449,13 +493,15 @@ function collectReviewState() {
   return Array.from(
     document.querySelectorAll('#import-review-list .review-item:not([data-removed="true"])')
   ).map(card => {
-    const idx = parseInt(card.dataset.idx, 10);
+    const idx    = parseInt(card.dataset.idx, 10);
+    const active = card.querySelector('[data-role="budget"].active');
     return {
       date:             card.querySelector('.review-item-date').textContent,
       item:             card.querySelector('.review-item-name').value.trim(),
       amount:           _categorized[idx]?.amount ?? 0,
       category:         card.querySelector('.review-cat-select').value,
       originalCategory: _categorized[idx]?.category || 'Other',
+      budget:           active?.dataset.value || 'personal',
     };
   });
 }

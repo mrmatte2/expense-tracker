@@ -102,8 +102,8 @@ export async function categorizeExpenses(items) {
  * Bulk-write pre-built rows to the Joint Expenses sheet.
  * Each row: [timestamp, purchaseDate, item, amount, category, 'Ja', paidBy]
  */
-export async function batchImportExpenses(rows) {
-  return apiPost({ action: 'batchImport' }, { rows });
+export async function batchImportExpenses(rows, sheetName) {
+  return apiPost({ action: 'batchImport', sheet: sheetName }, { rows });
 }
 
 /**

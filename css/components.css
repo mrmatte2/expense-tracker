@@ -575,6 +575,35 @@ select {
 }
 .review-remove-btn:hover { color: var(--accent); }
 
+.review-budget-row {
+  display: flex;
+  gap: 6px;
+}
+.budget-btn {
+  flex: 1;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 6px 8px;
+  background: var(--bg);
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.budget-btn.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: white;
+}
+.budget-btn[data-value="joint"].active {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
 .selected-file-row {
   display: flex;
   align-items: center;
